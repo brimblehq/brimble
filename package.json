@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc && ncc build -o dist",
-    "release": "pkg package.json --output brimble --debug && npm run move",
+    "release": "pkg package.json --output brimble && npm run move",
     "move": "bash ./move.sh",
     "test": "jest --watch --runInBand --detectOpenHandles"
   },
