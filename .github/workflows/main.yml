@@ -1,8 +1,10 @@
 on:
   push:
-    branches: [ main ]  # Trigger on pushes to the main branch
+    branches:
+      - main
   pull_request:
-    branches: [ main ]  # Trigger on pull requests to the main branch
+    branches:
+      - main
 
 jobs:
   build_and_release:
@@ -24,11 +26,18 @@ jobs:
         env:
           PKG_OUTPUT: builds
         run: npm run release
-      - name: Create GitHub release (if tagged)
+      - name: Create tag
+        if: success()
+        run: git tag -a v${GITHUB_RUN_NUMBER} -m "Auto-generated tag from GitHub Actions"
+      - name: Push tag
+        if: success()
+        run: git push origin --tags
+      - name: Create GitHub release
+        if: success()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          name: Release ${{ github.ref }}
+          tag_name: v${GITHUB_RUN_NUMBER}
+          name: Release v${GITHUB_RUN_NUMBER}
           body: |
             Build artifacts:
             <ul>
