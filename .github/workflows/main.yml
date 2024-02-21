@@ -1,7 +1,8 @@
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]  # Trigger on pushes to the main branch
+  pull_request:
+    branches: [ main ]  # Trigger on pull requests to the main branch
 
 jobs:
   build_and_release:
@@ -25,11 +26,18 @@ jobs:
         env:
           PKG_OUTPUT: builds
         run: npm run release
-      - name: Create GitHub release
+      - name: Bump version and create tag (if successful)
+        run: |
+          if [[ ${{ github.event.name }} == 'push' || ${{ github.event.name }} == 'pull_request' ]]; then
+            npm version patch  # Increment patch version as an example
+            git tag -a $(npm version | cut -d' ' -f1)
+            git push origin --tags
+          fi
+      - name: Create GitHub release (if tagged)
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
-          release_title: Release ${{ github.ref }}
+          name: Release ${{ github.ref }}
           body: |
             Build artifacts:
             <ul>
