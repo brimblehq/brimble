@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Set up Git
+        run: |
+          git config --global user.email "davmuri1414@gmail.com"
+          git config --global user.name "Muritala David"
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
