@@ -7,7 +7,7 @@
     "brimble": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && ncc build -o dist",
+    "build": "tsc -p .",
     "release": "pkg package.json --output brimble && npm run move",
     "move": "bash ./move.sh",
     "test": "jest --watch --runInBand --detectOpenHandles"
