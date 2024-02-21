@@ -1,0 +1,39 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+      - name: Install pkg
+        run: npm i -g pkg
+      - name: Install dependencies
+        run: npm ci
+      - name: Build cli
+        run: npm run build
+      - name: Build for target platforms
+        env:
+          PKG_OUTPUT: builds
+        run: npm run release
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_title: Release ${{ github.ref }}
+          body: |
+            Build artifacts:
+            <ul>
+              {% for file in github.event.repository.releases.assets %}
+              <li>{{ file.name }} ({{ file.size }} bytes)</li>
+              {% endfor %}
+            </ul>
+          files: |
+            builds/*
