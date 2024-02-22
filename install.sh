@@ -16,9 +16,10 @@ ARCH="$(uname -m)"
 echo "Detected OS: ${OS}, Architecture: ${ARCH}"
 
 # Define the URLs for the Brimble binaries
-BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-linux"
-BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-macos"
-BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-win.exe"
+BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-linux-x64"
+BRIMBLE_LINUX_ARM64="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-linux-arm64"
+BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-macos-x64"
+BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-win-x64.exe"
 
 # Determine the binary URL based on the OS and architecture
 case "${OS}" in
@@ -26,6 +27,9 @@ case "${OS}" in
         case "${ARCH}" in
             x86_64|amd64)
                 BRIMBLE_URL="${BRIMBLE_LINUX}"
+                ;;
+            aarch64)
+                BRIMBLE_URL="${BRIMBLE_LINUX_ARM64}"
                 ;;
             *)
                 error "Unsupported architecture: ${ARCH} on Linux"
