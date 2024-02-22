@@ -16,9 +16,9 @@ ARCH="$(uname -m)"
 echo "Detected OS: ${OS}, Architecture: ${ARCH}"
 
 # Define the URLs for the Brimble binaries
-BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1/brimble-linux"
-BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1/brimble-macos"
-BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1/brimble-win.exe"
+BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-linux"
+BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-macos"
+BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1.0.0/brimble-win.exe"
 
 # Determine the binary URL based on the OS and architecture
 case "${OS}" in
