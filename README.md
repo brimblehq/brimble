@@ -1,8 +1,6 @@
-# Brimble CLI
-
 <p align="center">
   <a href="https://docs.brimble.io" target="_blank" rel="noopener noreferrer">
-    <img width="180" src="https://storage.googleapis.com/brimble-assets/logo_readme.svg" alt="Brimble logo">
+    <img width="180" src="https://brimble.io/images/Brimble-Logo.png" alt="Brimble logo">
   </a>
 </p>
 
@@ -24,6 +22,12 @@ yarn global add @brimble/cli
 
 ```bash
 npm install -g @brimble/cli
+```
+
+### Using Curl
+
+```bash
+curl -fsSL https://cdn.brimble.io/install.sh | bash
 ```
 
 ## Usage
