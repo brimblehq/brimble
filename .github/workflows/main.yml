@@ -39,3 +39,5 @@ jobs:
             Build artifacts: macos, linux & windows
           files: |
             builds/*
+      - name: Final clean up
+        run: rm -rf builds
