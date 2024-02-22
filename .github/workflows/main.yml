@@ -1,10 +1,9 @@
 on:
   push:
-    branches:
+    branches-ignore:
       - main
-  pull_request:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build_and_release:
@@ -30,24 +29,13 @@ jobs:
         env:
           PKG_OUTPUT: builds
         run: npm run release
-      - name: Create tag
-        if: success()
-        run: git tag -a v${GITHUB_RUN_NUMBER} -m "Auto-generated tag from GitHub Actions"
-      - name: Push tag
-        if: success()
-        run: git push origin --tags
       - name: Create GitHub release
-        if: success()
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${GITHUB_RUN_NUMBER}
-          name: Release v${GITHUB_RUN_NUMBER}
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
           body: |
-            Build artifacts:
-            <ul>
-              {% for file in github.event.repository.releases.assets %}
-              <li>{{ file.name }} ({{ file.size }} bytes)</li>
-              {% endfor %}
-            </ul>
+            Build artifacts: macos, linux & windows
           files: |
             builds/*

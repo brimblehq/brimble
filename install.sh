@@ -1,66 +1,79 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-github_owner="brimblehq"
-github_repo="brimble"
-
-os=$(uname -s)
-machine_type=$(uname -m)
-
-supported_platforms=(
-    "Linux-x86_64" => "https://github.com/${github_owner}/${github_repo}/releases/latest/download/brimble-linux-x64"
-    "Linux-aarch64" => "https://github.com/${github_owner}/${github_repo}/releases/latest/download/brimble-linux-arm64"
-    "Darwin-x86_64" => "https://github.com/${github_owner}/${github_repo}/releases/latest/download/brimble-macos-x64"
-    "Windows-x86_64" => "https://github.com/${github_owner}/${github_repo}/releases/latest/download/brimble-win-x64.exe"
-)
-
-platform="${os}-${machine_type}"
-is_supported=false
-for supported_platform in "${!supported_platforms[@]}"; do
-    if [[ "$supported_platform" == "$platform" ]]; then
-        download_url="${supported_platforms[$supported_platform]}"
-        is_supported=true
-        break
-    fi
-done
-
-if [[ "$is_supported" == true ]]; then
-    # Download the release for the specific platform
-    echo "Downloading for $platform..."
-    curl -Lo cli-app.tar.gz "$download_url" || {
-        echo "Download failed!"
-        exit 1
-    }
-
-    # Extract the archive (not needed for Windows)
-    if [[ "$os" != "Windows" ]]; then
-        tar xzf cli-app.tar.gz || {
-            echo "Extraction failed!"
-            exit 1
-        }
-    fi
-
-    # Perform platform-specific installation
-    case "$platform" in
-        "Linux-x86_64")
-            echo "Installing on Linux x86_64..."
-            ;;
-        "Linux-aarch64")
-            echo "Installing on Linux aarch64..."
-            ;;
-        "Darwin-x86_64")
-            echo "Installing on macOS x86_64..."
-            ;;
-        "Windows-x86_64")
-            echo "Installing on Windows x86_64..."
-            cp cli-app-windows-x86_64.exe "C:\\Program Files\\YourApp.exe"
-            ;;
-    esac
-
-    rm -rf cli-app.tar.gz
-
-    echo "Installation complete!"
-
-else
-    echo "Installation is not supported on this platform: $platform"
+error() {
+    echo -e "\033[0;31merror:\033[0m" "$@" >&2
     exit 1
+}
+
+success() {
+    echo -e "\033[0;32msuccess:\033[0m" "$@"
+}
+
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+echo "Detected OS: ${OS}, Architecture: ${ARCH}"
+
+# Define the URLs for the Brimble binaries
+BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1/brimble-linux"
+BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1/brimble-macos"
+BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1/brimble-win.exe"
+
+# Determine the binary URL based on the OS and architecture
+case "${OS}" in
+    Linux)
+        case "${ARCH}" in
+            x86_64|amd64)
+                BRIMBLE_URL="${BRIMBLE_LINUX}"
+                ;;
+            *)
+                error "Unsupported architecture: ${ARCH} on Linux"
+                ;;
+        esac
+        ;;
+    Darwin)
+        case "${ARCH}" in
+            x86_64|amd64|i386)  # Assuming x86_64 for macOS for simplicity, adjust as needed
+                BRIMBLE_URL="${BRIMBLE_MACOS}"
+                ;;
+            arm64)
+                BRIMBLE_URL="${BRIMBLE_MACOS}"
+                ;;
+            *)
+                error "Unsupported architecture: ${ARCH} on macOS"
+                ;;
+        esac
+        ;;
+    *)
+        error "Unsupported operating system: ${OS}"
+        ;;
+esac
+
+INSTALL_DIR="$HOME/.brimble/bin"
+mkdir -p "${INSTALL_DIR}"
+
+BRIMBLE_BIN="${INSTALL_DIR}/brimble"
+
+echo "Downloading Brimble from ${BRIMBLE_URL}..."
+curl --fail --location --progress-bar --output "${BRIMBLE_BIN}" "${BRIMBLE_URL}" || error "Failed to download Brimble"
+
+chmod +x "${BRIMBLE_BIN}" || error "Failed to set executable permissions on Brimble"
+
+sudo mv "${BRIMBLE_BIN}" /usr/local/bin/brimble || error "Failed to move Brimble binary to /usr/local/bin/brimble"
+
+echo 'Adding Brimble to PATH in .bashrc and .zshrc...'
+{
+    echo "# Brimble PATH"
+    echo "export PATH=${INSTALL_DIR}:\$PATH"
+} >> "$HOME/.bashrc"
+
+if [ -f "$HOME/.zshrc" ]; then
+    {
+    echo "# Brimble PATH"
+    echo "export PATH=${INSTALL_DIR}:\$PATH"
+    } >> "$HOME/.zshrc"
 fi
+
+success "Brimble was installed successfully to ${BRIMBLE_BIN}"
+echo "Please restart your terminal or run 'source ~/.bashrc' to update your PATH."
