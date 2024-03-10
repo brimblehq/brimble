@@ -54,7 +54,9 @@ program
   .option("-b, --build", "build the project only")
   .option("-s, --start", "start the server only")
   .option("--watch", "watch and restart on file changes")
+  .option("--install-command <installCommand>", "install command")
   .option("--build-command <buildCommand>", "build command")
+  .option("--start-command <startCommand>", "start command")
   .option("--output-directory <outputDirectory>", "output directory")
   .option("--use-bun", "use bun instead of yarn")
   .action(serve);

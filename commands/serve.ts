@@ -11,6 +11,7 @@ import history from "connect-history-api-fallback";
 import { startScript } from "../services/start";
 import { installScript } from "../services/install";
 import { buildScript } from "../services/build";
+import { IOption } from "../types";
 const open = require("better-opn");
 
 export const customServer = (
@@ -63,21 +64,7 @@ export const customServer = (
   return server;
 };
 
-const serve = async (
-  directory: string = ".",
-  options: {
-    port?: number;
-    host?: string;
-    open?: boolean;
-    buildCommand?: string;
-    outputDirectory?: string;
-    start?: boolean;
-    useBun?: boolean;
-    watch?: boolean;
-    install?: boolean;
-    build?: boolean;
-  } = {}
-) => {
+const serve = async (directory: string = ".", options: IOption) => {
   try {
     const { folder, files } = dirValidator(directory);
     const PORT = await getPort({ port: options.port });
@@ -89,6 +76,16 @@ const serve = async (
 
       let { installCommand, buildCommand, startCommand, outputDirectory } =
         framework.settings;
+      let install = options.installCommand
+        ? options.installCommand.split(" ")[0]
+        : installCommand
+        ? installCommand.split(" ")[0]
+        : "";
+      let installArgs = options.installCommand
+        ? options.installCommand.split(" ").slice(1)
+        : installCommand
+        ? installCommand.split(" ").slice(1)
+        : [];
       let build = options.buildCommand
         ? options.buildCommand.split(" ")[0]
         : buildCommand
@@ -99,8 +96,20 @@ const serve = async (
         : buildCommand
         ? buildCommand.split(" ").slice(1)
         : [];
-      let start = startCommand?.split(" ")[0];
-      let startArgs = startCommand?.split(" ").slice(1);
+      let start = options.startCommand
+        ? options.startCommand.split(" ")[0]
+        : startCommand
+        ? startCommand.split(" ")[0]
+        : "";
+      let startArgs = options.startCommand
+        ? options.startCommand.split(" ").slice(1)
+        : startCommand
+        ? startCommand.split(" ").slice(1)
+        : [];
+
+      const isSettingsSet = options.install && options.build && options.start;
+      const isSettingsNotSet =
+        !options.install && !options.build && !options.start;
 
       outputDirectory = options.outputDirectory || outputDirectory;
 
@@ -112,18 +121,30 @@ const serve = async (
       } else if (files.includes("package-lock.json")) {
         installCommand = "npm install";
       }
+
       inquirer
         .prompt([
+          {
+            name: "installCommand",
+            message: "Install command",
+            default: installCommand,
+            when:
+              !options.installCommand &&
+              (isSettingsNotSet || !!options.install),
+          },
           {
             name: "buildCommand",
             message: "Build command",
             default: buildCommand,
             when:
-              (!options.buildCommand &&
-                !options.install &&
-                !options.build &&
-                !options.start) ||
-              !!options.build,
+              !options.buildCommand && (isSettingsNotSet || !!options.build),
+          },
+          {
+            name: "startCommand",
+            message: "Start command",
+            default: startCommand,
+            when:
+              !options.startCommand && (isSettingsNotSet || !!options.start),
           },
           {
             name: "outputDirectory",
@@ -132,20 +153,25 @@ const serve = async (
             when:
               !!outputDirectory &&
               !options.outputDirectory &&
-              ((!options.install && !options.build && !options.start) ||
-                !!options.start),
+              (isSettingsNotSet || !!options.start),
           },
         ])
-        .then(({ buildCommand, outputDirectory: optDir }) => {
-          const install = installCommand?.split(" ")[0] || "yarn";
-          const installArgs = installCommand?.split(" ").slice(1) || [
-            "--production=false",
-          ];
+        .then(({ installCommand, buildCommand, outputDirectory: optDir }) => {
+          install = installCommand ? installCommand.split(" ")[0] : install;
+          installArgs = installCommand
+            ? installCommand.split(" ").slice(1)
+            : installArgs;
 
           build = buildCommand ? buildCommand.split(" ")[0] : build;
           buildArgs = buildCommand
             ? buildCommand.split(" ").slice(1)
             : buildArgs;
+
+          start = startCommand ? startCommand.split(" ")[0] : start;
+          startArgs = startCommand
+            ? startCommand.split(" ").slice(1)
+            : startArgs;
+
           outputDirectory = optDir || outputDirectory || "dist";
 
           switch (framework.slug) {
@@ -186,10 +212,7 @@ const serve = async (
               break;
           }
 
-          if (
-            (!options.install && !options.build && !options.start) ||
-            (options.install && options.build && options.start)
-          ) {
+          if (isSettingsSet || isSettingsNotSet) {
             serveStack(
               folder,
               { install, installArgs, build, buildArgs, start, startArgs },
