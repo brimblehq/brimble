@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Define the latest version of Brimble
-BRIMBLE_VERSION="v1.0.2"
+BRIMBLE_VERSION="v$(node -e "console.log(require('./package.json').version)")"
 
 error() {
     echo -e "\033[0;31merror:\033[0m" "$@" >&2
