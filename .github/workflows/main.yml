@@ -49,6 +49,8 @@ jobs:
             builds/*
       - name: Deploy to npm
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
       - name: Final clean up
         run: rm -rf builds
