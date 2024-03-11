@@ -1,6 +1,6 @@
 {
   "name": "@brimble/cli",
-  "version": "3.5.76",
+  "version": "3.5.8",
   "description": "Serve and deploy jamstack apps with ease",
   "main": "./dist/index.js",
   "bin": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "release": "npm version patch --force && git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
+    "release": "git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
     "pre:release": "pkg package.json -d --output brimble && npm run move",
     "move": "bash ./move.sh",
     "test": "jest --watch --runInBand --detectOpenHandles"
