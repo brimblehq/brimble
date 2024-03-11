@@ -1,5 +1,3 @@
-import chalk from "chalk";
-import spawn from "cross-spawn";
 import { startScript } from "./start";
 import { installScript } from "./install";
 

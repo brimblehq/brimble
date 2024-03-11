@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Define the latest version of Brimble
 BRIMBLE_VERSION="v$(node -e "console.log(require('./package.json').version)")"
 
 error() {
