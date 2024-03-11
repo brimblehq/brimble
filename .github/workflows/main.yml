@@ -30,7 +30,7 @@ jobs:
       - name: Build for target platforms
         env:
           PKG_OUTPUT: builds
-        run: npm run release
+        run: npm run pre:release
       - name: Create tag
         run: git tag v$(node -p "require('./package.json').version")
         if: success()
