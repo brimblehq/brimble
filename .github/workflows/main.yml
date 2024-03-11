@@ -3,7 +3,7 @@ on:
     branches-ignore:
       - main
     tags:
-      - 'v*'
+      - 'release'
 
 jobs:
   build_and_release:
