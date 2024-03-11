@@ -18,13 +18,18 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
+      - name: Authenticate with npm
+        run: npm login --registry=https://registry.npmjs.org/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Install pkg
         run: npm i -g pkg
       - name: Install dependencies
         run: npm install
       - name: Build cli
-        run: npm run build
+        run: npm ci && npm run build
       - name: Build for target platforms
         env:
           PKG_OUTPUT: builds
