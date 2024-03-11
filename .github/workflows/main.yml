@@ -25,10 +25,18 @@ jobs:
         run: npm ci
       - name: Build cli
         run: npm run build
+      - name: Update package version
+        run: npm version patch --force
       - name: Build for target platforms
         env:
           PKG_OUTPUT: builds
         run: npm run release
+      - name: Create tag
+        run: git tag v$(node -p "require('./package.json').version")
+        if: success()
+      - name: Push tag
+        run: git push origin v$(node -p "require('./package.json').version")
+        if: success()
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
