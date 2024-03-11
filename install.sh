@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Define the latest version of Brimble
+BRIMBLE_VERSION="v1.0.2"
+
 error() {
     echo -e "\033[0;31merror:\033[0m" "$@" >&2
     exit 1
@@ -10,18 +13,16 @@ success() {
     echo -e "\033[0;32msuccess:\033[0m" "$@"
 }
 
-
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 echo "Detected OS: ${OS}, Architecture: ${ARCH}"
 
 # Define the URLs for the Brimble binaries
-BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-linux-x64"
-BRIMBLE_LINUX_ARM64="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-linux-arm64"
-BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-macos-x64"
-BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/v1.0.1/brimble-win-x64.exe"
+BRIMBLE_LINUX="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-linux-x64"
+BRIMBLE_LINUX_ARM64="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-linux-arm64"
+BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-macos-x64"
+BRIMBLE_WINDOWS="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-win-x64.exe"
 
-# Determine the binary URL based on the OS and architecture
 case "${OS}" in
     Linux)
         case "${ARCH}" in
@@ -38,7 +39,7 @@ case "${OS}" in
         ;;
     Darwin)
         case "${ARCH}" in
-            x86_64|amd64|i386)  # Assuming x86_64 for macOS for simplicity, adjust as needed
+            x86_64|amd64|i386)
                 BRIMBLE_URL="${BRIMBLE_MACOS}"
                 ;;
             arm64)
@@ -64,7 +65,7 @@ curl --fail --location --progress-bar --output "${BRIMBLE_BIN}" "${BRIMBLE_URL}"
 
 chmod +x "${BRIMBLE_BIN}" || error "Failed to set executable permissions on Brimble"
 
-sudo mv "${BRIMBLE_BIN}" /usr/local/bin/brimble || error "Failed to move Brimble binary to /usr/local/bin/brimble"
+mv "${BRIMBLE_BIN}" /usr/local/bin/brimble || error "Failed to move Brimble binary to /usr/local/bin/brimble"
 
 echo 'Adding Brimble to PATH in .bashrc and .zshrc...'
 {
@@ -79,5 +80,5 @@ if [ -f "$HOME/.zshrc" ]; then
     } >> "$HOME/.zshrc"
 fi
 
-success "Brimble was installed successfully to ${BRIMBLE_BIN}"
+success "Brimble ${BRIMBLE_VERSION} was installed successfully to ${BRIMBLE_BIN}"
 echo "Please restart your terminal or run 'source ~/.bashrc' to update your PATH."
