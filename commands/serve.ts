@@ -12,6 +12,7 @@ import { startScript } from "../services/start";
 import { installScript } from "../services/install";
 import { buildScript } from "../services/build";
 import { IOption } from "../types";
+
 const open = require("better-opn");
 
 export const customServer = (

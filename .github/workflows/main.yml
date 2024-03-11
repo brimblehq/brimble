@@ -4,6 +4,7 @@ on:
       - main
     tags:
       - 'release'
+
 jobs:
   build_and_release:
     runs-on: ubuntu-latest

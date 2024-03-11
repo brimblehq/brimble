@@ -49,5 +49,4 @@ const whoami = () => {
       });
   }
 };
-
 export default whoami;
