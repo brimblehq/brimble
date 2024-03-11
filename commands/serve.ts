@@ -145,7 +145,9 @@ const serve = async (directory: string = ".", options: IOption) => {
             message: "Start command",
             default: startCommand,
             when:
-              !options.startCommand && (isSettingsNotSet || !!options.start),
+              !!startCommand &&
+              !options.startCommand &&
+              (isSettingsNotSet || !!options.start),
           },
           {
             name: "outputDirectory",
