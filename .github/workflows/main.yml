@@ -1,8 +1,8 @@
 on:
   push:
-    branches-ignore:
+    branches:
       - main
-    tags:
+    tags-ignore:
       - 'release'
 
 jobs:
