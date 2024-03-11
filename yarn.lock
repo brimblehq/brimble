@@ -300,10 +300,21 @@
     mongoose "^5.8.11"
     uuid "^8.3.2"
 
-"@brimble/utils@^1.5.22", "@brimble/utils@^1.5.23":
+"@brimble/utils@^1.5.23":
   version "1.5.25"
   resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.25.tgz#b9c9d4198d62c485578b8416e524a216ed6c8c43"
   integrity sha512-EDO6nPIRrA99e2F7XiEZ1RysJCZWMkr3QJN8PnqrePk3OS4bKXP/SxP0WV/zbuZe01KJ5CwppWo4fU6kNOXwoA==
+  dependencies:
+    crypto-js "^4.1.1"
+    pino "^8.6.0"
+    pino-pretty "^9.1.0"
+    unique-names-generator "^4.7.1"
+    winston "^3.8.2"
+
+"@brimble/utils@^1.5.30":
+  version "1.5.30"
+  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.30.tgz#500da075389093d061b82420fe2e31bc59b790a7"
+  integrity sha512-lXVtQcuTfEV6rjrXXPzMqSgaL2feqDbP4/6U0+hoSBajoVXKWY2H+SsnArMUQJoqWXYkgivSYHyw1hCFqZ8Mug==
   dependencies:
     crypto-js "^4.1.1"
     pino "^8.6.0"

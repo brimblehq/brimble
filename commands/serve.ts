@@ -76,7 +76,7 @@ const serve = async (directory: string = ".", options: IOption) => {
       const framework = detectFramework(packageJson);
 
       let { installCommand, buildCommand, startCommand, outputDirectory } =
-        framework.settings;
+        framework?.settings || {};
       let install = options.installCommand
         ? options.installCommand.split(" ")[0]
         : installCommand
@@ -159,96 +159,107 @@ const serve = async (directory: string = ".", options: IOption) => {
               (isSettingsNotSet || !!options.start),
           },
         ])
-        .then(({ installCommand, buildCommand, outputDirectory: optDir }) => {
-          install = installCommand ? installCommand.split(" ")[0] : install;
-          installArgs = installCommand
-            ? installCommand.split(" ").slice(1)
-            : installArgs;
+        .then(
+          ({
+            installCommand,
+            startCommand,
+            buildCommand,
+            outputDirectory: optDir,
+          }) => {
+            install = installCommand ? installCommand.split(" ")[0] : install;
+            installArgs = installCommand
+              ? installCommand.split(" ").slice(1)
+              : installArgs;
 
-          build = buildCommand ? buildCommand.split(" ")[0] : build;
-          buildArgs = buildCommand
-            ? buildCommand.split(" ").slice(1)
-            : buildArgs;
+            build = buildCommand ? buildCommand.split(" ")[0] : build;
+            buildArgs = buildCommand
+              ? buildCommand.split(" ").slice(1)
+              : buildArgs;
 
-          start = startCommand ? startCommand.split(" ")[0] : start;
-          startArgs = startCommand
-            ? startCommand.split(" ").slice(1)
-            : startArgs;
+            start = startCommand ? startCommand.split(" ")[0] : start;
+            startArgs = startCommand
+              ? startCommand.split(" ").slice(1)
+              : startArgs;
 
-          outputDirectory = optDir || outputDirectory || "dist";
+            outputDirectory = optDir || outputDirectory || "dist";
 
-          switch (framework.slug) {
-            case "angular":
-              buildArgs.push(`--output-path=${outputDirectory}`);
-              break;
-            case "astro":
-              const astroConfig = fs.readFileSync(
-                path.resolve(folder, "astro.config.mjs"),
-                "utf8"
+            switch (framework?.slug) {
+              case "angular":
+                buildArgs.push(`--output-path=${outputDirectory}`);
+                break;
+              case "astro":
+                const astroConfig = fs.readFileSync(
+                  path.resolve(folder, "astro.config.mjs"),
+                  "utf8"
+                );
+                if (
+                  astroConfig?.includes("output") &&
+                  astroConfig?.includes('output: "server"')
+                ) {
+                  start = "node";
+                  startArgs = [`${outputDirectory}/server/entry.mjs`];
+                }
+                break;
+              case "remix":
+                startArgs?.push(outputDirectory || "");
+                break;
+              case "svelte":
+                const svelteConfig = fs.readFileSync(
+                  path.resolve(folder, "svelte.config.js"),
+                  "utf8"
+                );
+
+                if (svelteConfig?.includes("@sveltejs/adapter-static")) {
+                  const pages = svelteConfig.match(/(?<=pages: )(.*?)(?=,)/);
+                  outputDirectory = pages
+                    ? pages[0].replace(/'/g, "")
+                    : "build";
+                } else {
+                  const out = svelteConfig.match(/(?<=out: )(.*?)(?=,)/);
+                  start = "node";
+                  startArgs = [out ? out[0].replace(/'/g, "") : "build"];
+                }
+              default:
+                break;
+            }
+
+            if (isSettingsSet || isSettingsNotSet) {
+              serveStack(
+                folder,
+                { install, installArgs, build, buildArgs, start, startArgs },
+                {
+                  outputDirectory,
+                  isOpen: options.open,
+                  port: PORT,
+                  host: HOST,
+                  watch: options.watch,
+                }
               );
-              if (
-                astroConfig?.includes("output") &&
-                astroConfig?.includes('output: "server"')
-              ) {
-                start = "node";
-                startArgs = [`${outputDirectory}/server/entry.mjs`];
-              }
-              break;
-            case "remix":
-              startArgs?.push(outputDirectory || "");
-              break;
-            case "svelte":
-              const svelteConfig = fs.readFileSync(
-                path.resolve(folder, "svelte.config.js"),
-                "utf8"
+            } else if (options.install) {
+              installScript({
+                _install: install,
+                installArgs,
+                dir: folder,
+              }).then(() => process.exit(0));
+            } else if (options.build) {
+              buildScript({ _build: build, buildArgs, dir: folder }).then(() =>
+                process.exit(0)
               );
-
-              if (svelteConfig?.includes("@sveltejs/adapter-static")) {
-                const pages = svelteConfig.match(/(?<=pages: )(.*?)(?=,)/);
-                outputDirectory = pages ? pages[0].replace(/'/g, "") : "build";
-              } else {
-                const out = svelteConfig.match(/(?<=out: )(.*?)(?=,)/);
-                start = "node";
-                startArgs = [out ? out[0].replace(/'/g, "") : "build"];
-              }
-            default:
-              break;
+            } else {
+              startScript({
+                ci: { start, startArgs },
+                dir: folder,
+                server: {
+                  outputDirectory,
+                  isOpen: options.open,
+                  port: PORT,
+                  host: HOST,
+                  watch: options.watch,
+                },
+              });
+            }
           }
-
-          if (isSettingsSet || isSettingsNotSet) {
-            serveStack(
-              folder,
-              { install, installArgs, build, buildArgs, start, startArgs },
-              {
-                outputDirectory,
-                isOpen: options.open,
-                port: PORT,
-                host: HOST,
-                watch: options.watch,
-              }
-            );
-          } else if (options.install) {
-            installScript({ _install: install, installArgs, dir: folder }).then(
-              () => process.exit(0)
-            );
-          } else if (options.build) {
-            buildScript({ _build: build, buildArgs, dir: folder }).then(() =>
-              process.exit(0)
-            );
-          } else {
-            startScript({
-              ci: { start, startArgs },
-              dir: folder,
-              server: {
-                outputDirectory,
-                isOpen: options.open,
-                port: PORT,
-                host: HOST,
-                watch: options.watch,
-              },
-            });
-          }
-        });
+        );
     } else if (files.includes("index.html")) {
       customServer(PORT, HOST, folder, options.open);
     } else {
