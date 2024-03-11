@@ -29,7 +29,7 @@ export const buildScript = ({ _build, buildArgs, dir }: IOpt) => {
 
     build.on("error", (err) => {
       console.log(`${chalk.red(err)}`);
-      reject(err); // Reject the Promise on an error
+      reject(err);
     });
   });
 };
