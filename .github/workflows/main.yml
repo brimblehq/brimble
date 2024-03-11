@@ -2,8 +2,8 @@ on:
   push:
     branches:
       - main
-    tags-ignore:
-      - 'release'
+  tags-ignore:
+    - 'release'
 
 jobs:
   build_and_release:
@@ -19,36 +19,30 @@ jobs:
         with:
           node-version: 16
           cache: 'npm'
-      - name: Install pkg
-        run: npm i -g pkg
       - name: Install dependencies
         run: npm install
+      - name: Install semantic-release
+        run: npm install -g semantic-release
       - name: Build cli
         run: npm run build
-      - name: Update package version
-        run: npm version patch --force
+      - name: Analyze commits and generate release notes (semantic-release)
+        uses: semantic-release/semantic-release@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build for target platforms
         env:
           PKG_OUTPUT: builds
         run: npm run pre:release
-      - name: Create tag
-        run: git tag v$(node -p "require('./package.json').version")
-        if: success()
-      - name: Push tag
-        run: git push origin v$(node -p "require('./package.json').version")
-        if: success()
-      - name: Create GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create GitHub release (using generated tag)
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          name: Release ${{ github.sha }}
+          tag_name: ${{ github.ref }}  # Use automatically generated tag by semantic-release
+          name: ${{ github.sha }}  # Use commit SHA for release name
           body: |
             Build artifacts: macos, linux & windows
           files: |
             builds/*
       - name: Deploy to npm
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
