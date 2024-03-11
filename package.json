@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "release": "npm version patch --force && npm run build",
+    "release": "npm version patch --force && git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
     "pre:release": "pkg package.json -d --output brimble && npm run move",
     "move": "bash ./move.sh",
     "test": "jest --watch --runInBand --detectOpenHandles"
