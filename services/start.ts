@@ -45,11 +45,17 @@ export const startScript = async ({
 
     start.stdout?.on("data", (data) => {
       const message = data.toString();
+      const url = message.match(
+        /http:\/\/(?:[a-zA-Z0-9-.]+|\[[^\]]+\]):[0-9]+/g
+      );
 
-      if (message.match(/:[0-9]+/g)) {
+      if (url) {
+        // get port from url
+        const port = url[0].split(":")[2];
+
         // get running process
         exec(
-          `lsof -i tcp:${server.port} | grep LISTEN | awk '{print $2}'`,
+          `lsof -i tcp:${port} | grep LISTEN | awk '{print $2}'`,
           (err, stdout, stderr) => {
             if (stdout) {
               const pid = stdout.toString().trim();
