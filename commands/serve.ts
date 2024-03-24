@@ -186,13 +186,15 @@ const serve = async (directory: string = ".", options: IOption) => {
 
             outputDirectory = optDir || outputDirectory || "dist";
 
-            const isDefault = install.includes("yarn");
-            const modulesFolder = options.modulesFolder
-              ? `${options.modulesFolder}/${isDefault ? "node_modules" : ""}`
-              : "";
-            installArgs.push(
-              modulesFolder ? `--modules-folder ${modulesFolder}` : ""
-            );
+            const isYarn = install.includes("yarn");
+            const modulesFolder = options.modulesFolder;
+            if (modulesFolder) {
+              installArgs.push(
+                isYarn
+                  ? `--modules-folder ${modulesFolder}/node_modules`
+                  : `--prefix ${modulesFolder}`
+              );
+            }
 
             switch (framework?.slug) {
               case "angular":
