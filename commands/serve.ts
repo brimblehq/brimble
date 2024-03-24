@@ -123,7 +123,7 @@ const serve = async (directory: string = ".", options: IOption) => {
           ? startCommand?.replace("npx", "bunx")
           : startCommand?.replace("yarn", "bun run");
       } else if (files.includes("package-lock.json")) {
-        installCommand = "npm install";
+        installCommand = `npm install`;
       }
 
       inquirer
@@ -185,6 +185,14 @@ const serve = async (directory: string = ".", options: IOption) => {
               : startArgs;
 
             outputDirectory = optDir || outputDirectory || "dist";
+
+            const isDefault = install.includes("yarn");
+            const modulesFolder = options.modulesFolder
+              ? `${options.modulesFolder}/${isDefault ? "node_modules" : ""}`
+              : "";
+            installArgs.push(
+              modulesFolder ? `--modules-folder ${modulesFolder}` : ""
+            );
 
             switch (framework?.slug) {
               case "angular":

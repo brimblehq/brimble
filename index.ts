@@ -59,6 +59,7 @@ program
   .option("--start-command <startCommand>", "start command")
   .option("--output-directory <outputDirectory>", "output directory")
   .option("--use-bun", "use bun instead of yarn")
+  .option("--modules-folder <modulesFolder>", "where to create node_modules")
   .action(serve);
 
 program

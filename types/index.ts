@@ -11,4 +11,5 @@ export type IOption = {
   watch?: boolean;
   install?: boolean;
   build?: boolean;
+  modulesFolder?: string;
 };
