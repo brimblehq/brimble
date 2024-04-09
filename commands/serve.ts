@@ -68,7 +68,8 @@ export const customServer = (
 const serve = async (directory: string = ".", options: IOption) => {
   try {
     const { folder, files } = dirValidator(directory);
-    const PORT = await getPort({ port: options.port });
+    const port = Number(options.port || process.env.PORT);
+    const PORT = await getPort({ port });
     const HOST = options.host || "0.0.0.0";
 
     if (files.includes("package.json")) {
