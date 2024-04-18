@@ -311,10 +311,10 @@
     unique-names-generator "^4.7.1"
     winston "^3.8.2"
 
-"@brimble/utils@^1.5.31":
-  version "1.5.31"
-  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.31.tgz#c3868c7e660f4639b077341c78591e04ff1109bf"
-  integrity sha512-ItU66ldZoBb5I3jd304hiUpnOV32uXtdHnuNgeMbKeFIm3vhEvfuA3EaIgAWoUzwN1DkH28B2YLw8OC0Jf+Pjg==
+"@brimble/utils@^1.5.32":
+  version "1.5.32"
+  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.32.tgz#c9789480a29c56880012717103ff0b7ed6bb5409"
+  integrity sha512-vFwcC6I6QYaMjd5lFVZazG37WZlY436a58SCAyoa6tDX8zgQkfiqnyEM0+hRX7/7m62QsKSu3foX90Qf9TPxZQ==
   dependencies:
     crypto-js "^4.1.1"
     pino "^8.6.0"

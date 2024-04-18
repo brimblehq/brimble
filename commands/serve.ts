@@ -196,6 +196,7 @@ const serve = async (directory: string = ".", options: IOption) => {
                   : `--prefix ${modulesFolder}`
               );
             }
+            installArgs.push("--ignore-scripts");
 
             switch (framework?.slug) {
               case "angular":
