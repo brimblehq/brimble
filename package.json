@@ -1,6 +1,6 @@
 {
   "name": "@brimble/cli",
-  "version": "3.5.93",
+  "version": "3.5.95",
   "description": "Serve and deploy jamstack apps with ease",
   "main": "./dist/index.js",
   "bin": {
@@ -43,6 +43,7 @@
     "get-port": "5.1.1",
     "glob": "^8.0.3",
     "inquirer": "^8.2.4",
+    "is-docker": "^3.0.0",
     "is-valid-domain": "^0.1.6",
     "ora": "5",
     "parse-gitignore": "^2.0.0",
