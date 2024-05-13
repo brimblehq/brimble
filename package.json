@@ -1,6 +1,6 @@
 {
   "name": "@brimble/cli",
-  "version": "3.5.95",
+  "version": "3.5.96",
   "description": "Serve and deploy jamstack apps with ease",
   "main": "./dist/index.js",
   "bin": {
