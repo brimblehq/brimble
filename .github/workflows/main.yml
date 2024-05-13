@@ -4,7 +4,6 @@ on:
       - main
     tags:
       - 'v*'
-
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
