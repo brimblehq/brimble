@@ -6,7 +6,7 @@ import path from "path";
 import { exec } from "child_process";
 import chokidar from "chokidar";
 import { buildScript } from "./build";
-import isDocker from "is-docker";
+// import isDocker from "is-docker";
 
 type IOpt = {
   ci: { start?: string; startArgs?: any; build?: string; buildArgs?: any };
@@ -67,16 +67,18 @@ export const startScript = async ({
             }
           }
         );
-      } else if (isDocker()) {
-        exec(`lsof -i -P -n | grep LISTEN | awk '{print $9}'`, (_, stdout) => {
-          if (stdout) {
-            const port = stdout.toString().split(":")[1];
-            if (port) {
-              console.log(`http://${server.host}:${port}`);
-            }
-          }
-        });
-      } else {
+      } 
+      // else if (isDocker()) {
+      //   exec(`lsof -i -P -n | grep LISTEN | awk '{print $9}'`, (_, stdout) => {
+      //     if (stdout) {
+      //       const port = stdout.toString().split(":")[1];
+      //       if (port) {
+      //         console.log(`http://${server.host}:${port}`);
+      //       }
+      //     }
+      //   });
+      // } 
+      else {
         console.log(`${chalk.green(message)}`);
       }
     });
