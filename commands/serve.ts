@@ -173,7 +173,9 @@ const serve = async (directory: string = ".", options: IOption) => {
               outputDirectory: optDir,
             }) => {
               if (files.includes("prisma")) {
-                buildCommand = `npx prisma generate && ${buildCommand}`;
+                buildCommand = `npx prisma generate && ${
+                  buildCommand || `${build} ${buildArgs.join(" ")}`
+                }`;
               }
 
               install = installCommand ? installCommand.split(" ")[0] : install;
