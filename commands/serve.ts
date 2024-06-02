@@ -129,160 +129,169 @@ const serve = async (directory: string = ".", options: IOption) => {
         installCommand = "pnpm i --frozen-lockfile";
       }
 
-        inquirer
-          .prompt([
-            {
-              name: "installCommand",
-              message: "Install command",
-              default: installCommand,
-              when:
-                !options.installCommand &&
-                (isSettingsNotSet || !!options.install),
-            },
-            {
-              name: "buildCommand",
-              message: "Build command",
-              default: buildCommand,
-              when:
-                !options.buildCommand && (isSettingsNotSet || !!options.build),
-            },
-            {
-              name: "startCommand",
-              message: "Start command",
-              default: startCommand,
-              when:
-                !!startCommand &&
-                !options.startCommand &&
-                (isSettingsNotSet || !!options.start),
-            },
-            {
-              name: "outputDirectory",
-              message: "Output directory",
-              default: outputDirectory,
-              when:
-                !!outputDirectory &&
-                !options.outputDirectory &&
-                (isSettingsNotSet || !!options.start),
-            },
-          ])
-          .then(
-            ({
-              installCommand,
-              startCommand,
-              buildCommand,
-              outputDirectory: optDir,
-            }) => {
-              if (files.includes("prisma")) {
-                buildCommand = `npx prisma generate && ${
-                  buildCommand || `${build} ${buildArgs.join(" ")}`
-                }`;
-              }
-
-              install = installCommand ? installCommand.split(" ")[0] : install;
-              installArgs = installCommand
-                ? installCommand.split(" ").slice(1)
-                : installArgs;
-
-              build = buildCommand ? buildCommand.split(" ")[0] : build;
-              buildArgs = buildCommand
-                ? buildCommand.split(" ").slice(1)
-                : buildArgs;
-
-              start = startCommand ? startCommand.split(" ")[0] : start;
-              startArgs = startCommand
-                ? startCommand.split(" ").slice(1)
-                : startArgs;
-
-              outputDirectory = optDir || outputDirectory || "dist";
-
-              const isYarn = install.includes("yarn");
-              const modulesFolder = options.modulesFolder;
-              if (modulesFolder) {
-                installArgs.push(
-                  isYarn
-                    ? `--modules-folder ${modulesFolder}/node_modules --frozen-lockfile`
-                    : `--prefix ${modulesFolder}`
-                );
-              }
-              installArgs.push("--ignore-scripts");
-
-              switch (framework?.slug) {
-                case "angular":
-                  buildArgs.push(`--output-path=${outputDirectory}`);
-                  break;
-                case "astro":
-                  const astroConfig = fs.readFileSync(
-                    path.resolve(folder, "astro.config.mjs"),
-                    "utf8"
-                  );
-                  if (
-                    astroConfig?.includes("output") &&
-                    astroConfig?.includes('output: "server"')
-                  ) {
-                    start = "node";
-                    startArgs = [`${outputDirectory}/server/entry.mjs`];
-                  }
-                  break;
-                case "remix":
-                  startArgs?.push(outputDirectory || "");
-                  break;
-                case "svelte":
-                  const svelteConfig = fs.readFileSync(
-                    path.resolve(folder, "svelte.config.js"),
-                    "utf8"
-                  );
-
-                  if (svelteConfig?.includes("@sveltejs/adapter-static")) {
-                    const pages = svelteConfig.match(/(?<=pages: )(.*?)(?=,)/);
-                    outputDirectory = pages
-                      ? pages[0].replace(/'/g, "")
-                      : "build";
-                  } else {
-                    const out = svelteConfig.match(/(?<=out: )(.*?)(?=,)/);
-                    start = "node";
-                    startArgs = [out ? out[0].replace(/'/g, "") : "build"];
-                  }
-                default:
-                  break;
-              }
-
-              if (isSettingsSet || isSettingsNotSet) {
-                serveStack(
-                  folder,
-                  { install, installArgs, build, buildArgs, start, startArgs },
-                  {
-                    outputDirectory,
-                    isOpen: options.open,
-                    port: PORT,
-                    host: HOST,
-                    watch: options.watch,
-                  }
-                );
-              } else if (options.install) {
-                installScript({
-                  _install: install,
-                  installArgs,
-                  dir: folder,
-                }).then(() => process.exit(0));
-              } else if (options.build) {
-                buildScript({ _build: build, buildArgs, dir: folder }).then(
-                  () => process.exit(0)
-                );
-              } else {
-                startScript({
-                  ci: { start, startArgs },
-                  dir: folder,
-                  server: {
-                    outputDirectory,
-                    isOpen: options.open,
-                    port: PORT,
-                    host: HOST,
-                    watch: options.watch,
-                  },
-                });
-              }
+      inquirer
+        .prompt([
+          {
+            name: "installCommand",
+            message: "Install command",
+            default: installCommand,
+            when:
+              !options.installCommand &&
+              (isSettingsNotSet || !!options.install),
+          },
+          {
+            name: "buildCommand",
+            message: "Build command",
+            default: buildCommand,
+            when:
+              !options.buildCommand && (isSettingsNotSet || !!options.build),
+          },
+          {
+            name: "startCommand",
+            message: "Start command",
+            default: startCommand,
+            when:
+              !!startCommand &&
+              !options.startCommand &&
+              (isSettingsNotSet || !!options.start),
+          },
+          {
+            name: "outputDirectory",
+            message: "Output directory",
+            default: outputDirectory,
+            when:
+              !!outputDirectory &&
+              !options.outputDirectory &&
+              (isSettingsNotSet || !!options.start),
+          },
+        ])
+        .then(
+          ({
+            installCommand,
+            startCommand,
+            buildCommand,
+            outputDirectory: optDir,
+          }) => {
+            if (files.includes("prisma")) {
+              buildCommand = `npx prisma generate && ${
+                buildCommand || `${build} ${buildArgs.join(" ")}`
+              }`;
             }
-          );
+
+            if (
+              packageJson?.dependencies?.hasOwnProperty("playwright") ||
+              packageJson?.devDependencies?.hasOwnProperty("playwright")
+            ) {
+              installCommand = `${
+                installCommand || `${install} ${installArgs.join(" ")}`
+              } && npx playwright install`;
+            }
+
+            install = installCommand ? installCommand.split(" ")[0] : install;
+            installArgs = installCommand
+              ? installCommand.split(" ").slice(1)
+              : installArgs;
+
+            build = buildCommand ? buildCommand.split(" ")[0] : build;
+            buildArgs = buildCommand
+              ? buildCommand.split(" ").slice(1)
+              : buildArgs;
+
+            start = startCommand ? startCommand.split(" ")[0] : start;
+            startArgs = startCommand
+              ? startCommand.split(" ").slice(1)
+              : startArgs;
+
+            outputDirectory = optDir || outputDirectory || "dist";
+
+            const isYarn = install.includes("yarn");
+            const modulesFolder = options.modulesFolder;
+            if (modulesFolder) {
+              installArgs.push(
+                isYarn
+                  ? `--modules-folder ${modulesFolder}/node_modules --frozen-lockfile`
+                  : `--prefix ${modulesFolder}`
+              );
+            }
+            installArgs.push("--ignore-scripts");
+
+            switch (framework?.slug) {
+              case "angular":
+                buildArgs.push(`--output-path=${outputDirectory}`);
+                break;
+              case "astro":
+                const astroConfig = require(path.resolve(
+                  folder,
+                  "astro.config.mjs"
+                ));
+                if (
+                  astroConfig?.includes("output") &&
+                  astroConfig?.includes('output: "server"')
+                ) {
+                  start = "node";
+                  startArgs = [`${outputDirectory}/server/entry.mjs`];
+                }
+                break;
+              case "remix":
+                startArgs?.push(outputDirectory || "");
+                break;
+              case "svelte":
+                const svelteConfig = require(path.resolve(
+                  folder,
+                  "svelte.config.js"
+                ));
+
+                if (svelteConfig?.includes("@sveltejs/adapter-static")) {
+                  const pages = svelteConfig.match(/(?<=pages: )(.*?)(?=,)/);
+                  outputDirectory = pages
+                    ? pages[0].replace(/'/g, "")
+                    : "build";
+                } else {
+                  const out = svelteConfig.match(/(?<=out: )(.*?)(?=,)/);
+                  start = "node";
+                  startArgs = [out ? out[0].replace(/'/g, "") : "build"];
+                }
+              default:
+                break;
+            }
+
+            if (isSettingsSet || isSettingsNotSet) {
+              serveStack(
+                folder,
+                { install, installArgs, build, buildArgs, start, startArgs },
+                {
+                  outputDirectory,
+                  isOpen: options.open,
+                  port: PORT,
+                  host: HOST,
+                  watch: options.watch,
+                }
+              );
+            } else if (options.install) {
+              installScript({
+                _install: install,
+                installArgs,
+                dir: folder,
+              }).then(() => process.exit(0));
+            } else if (options.build) {
+              buildScript({ _build: build, buildArgs, dir: folder }).then(() =>
+                process.exit(0)
+              );
+            } else {
+              startScript({
+                ci: { start, startArgs },
+                dir: folder,
+                server: {
+                  outputDirectory,
+                  isOpen: options.open,
+                  port: PORT,
+                  host: HOST,
+                  watch: options.watch,
+                },
+              });
+            }
+          }
+        );
     } else if (files.includes("index.html")) {
       customServer(PORT, HOST, folder, options.open);
     } else {
