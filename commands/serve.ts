@@ -178,15 +178,6 @@ const serve = async (directory: string = ".", options: IOption) => {
               }`;
             }
 
-            if (
-              packageJson?.dependencies?.hasOwnProperty("playwright") ||
-              packageJson?.devDependencies?.hasOwnProperty("playwright")
-            ) {
-              installCommand = `${
-                installCommand || `${install} ${installArgs.join(" ")}`
-              } && npx playwright install`;
-            }
-
             install = installCommand ? installCommand.split(" ")[0] : install;
             installArgs = installCommand
               ? installCommand.split(" ").slice(1)
@@ -215,6 +206,12 @@ const serve = async (directory: string = ".", options: IOption) => {
             }
             installArgs.push("--ignore-scripts");
 
+            if (
+              packageJson?.dependencies?.hasOwnProperty("playwright") ||
+              packageJson?.devDependencies?.hasOwnProperty("playwright")
+            ) {
+              installArgs.push(..."&& npx playwright install".split(" "));
+            }
             switch (framework?.slug) {
               case "angular":
                 buildArgs.push(`--output-path=${outputDirectory}`);
