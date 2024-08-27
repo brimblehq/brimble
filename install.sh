@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BRIMBLE_VERSION="v3.6.4"
+BRIMBLE_VERSION="v3.6.5"
 
 error() {
     echo -e "\033[0;31merror:\033[0m" "$@" >&2

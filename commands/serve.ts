@@ -172,7 +172,7 @@ const serve = async (directory: string = ".", options: IOption) => {
             buildCommand,
             outputDirectory: optDir,
           }) => {
-            if (files.includes("prisma")) {
+            if (files.includes("prisma") || packageJson?.prisma) {
               buildCommand = `npx prisma generate && ${
                 buildCommand || `${build} ${buildArgs.join(" ")}`
               }`;
