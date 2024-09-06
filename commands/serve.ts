@@ -248,6 +248,8 @@ const serve = async (directory: string = ".", options: IOption) => {
                   start = "node";
                   startArgs = [out ? out[0].replace(/'/g, "") : "build"];
                 }
+              case "vite":
+                installArgs.pop();
               default:
                 break;
             }
