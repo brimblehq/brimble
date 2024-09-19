@@ -98,15 +98,15 @@ const serve = async (directory: string = ".", options: IOption) => {
         : buildCommand
         ? buildCommand.split(" ").slice(1)
         : [];
-      let start = options.startCommand
-        ? options.startCommand.split(" ")[0]
-        : startCommand
-        ? startCommand.split(" ")[0]
+      let start = startCommand
+        ? options.startCommand
+          ? options.startCommand.split(" ")[0]
+          : startCommand.split(" ")[0]
         : "";
-      let startArgs = options.startCommand
-        ? options.startCommand.split(" ").slice(1)
-        : startCommand
-        ? startCommand.split(" ").slice(1)
+      let startArgs = startCommand
+        ? options.startCommand
+          ? options.startCommand.split(" ").slice(1)
+          : startCommand.split(" ").slice(1)
         : [];
 
       const isSettingsSet = options.install && options.build && options.start;
@@ -249,7 +249,7 @@ const serve = async (directory: string = ".", options: IOption) => {
                   startArgs = [out ? out[0].replace(/'/g, "") : "build"];
                 }
               case "vite":
-                installArgs.pop();
+                if (install.includes("npm")) installArgs.pop();
               default:
                 break;
             }
