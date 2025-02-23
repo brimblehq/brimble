@@ -43,7 +43,15 @@ export const startScript = async ({
       env: { ...process.env, PORT: `${server.port}`, HOST: server.host },
     });
 
+    let portFound = false; // Add a flag to track if we've found the port
+
     start.stdout?.on("data", (data) => {
+      // If we've already found the port, just log the message and return
+      if (portFound) {
+        console.log(`${chalk.green(data.toString())}`);
+        return;
+      }
+
       const message = data.toString();
       const url = message.match(
         /http:\/\/(?:[a-zA-Z0-9-.]+|\[[^\]]+\]):[0-9]+/g
@@ -63,6 +71,7 @@ export const startScript = async ({
               const pid = stdout.toString().trim();
               if (pid) {
                 console.log(`\nPID: ${pid}`);
+                portFound = true;
                 if (server.watch) watch({ ci, server, dir, start });
               }
             }
@@ -78,6 +87,7 @@ export const startScript = async ({
             const port = stdout.toString().split(":")[1];
             if (port) {
               console.log(`http://${server.host}:${port}`);
+              portFound = true;
             }
           }
         });
