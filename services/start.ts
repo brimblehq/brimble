@@ -6,7 +6,6 @@ import path from "path";
 import { exec } from "child_process";
 import chokidar from "chokidar";
 import { buildScript } from "./build";
-import isDocker from "is-docker";
 
 type IOpt = {
   ci: { start?: string; startArgs?: any; build?: string; buildArgs?: any };
@@ -44,13 +43,23 @@ export const startScript = async ({
       env: { ...process.env, PORT: `${server.port}`, HOST: server.host },
     });
 
+    let portFound = false; // Add a flag to track if we've found the port
+
     start.stdout?.on("data", (data) => {
+      // If we've already found the port, just log the message and return
+      if (portFound) {
+        console.log(`${chalk.green(data.toString())}`);
+        return;
+      }
+
       const message = data.toString();
       const url = message.match(
         /http:\/\/(?:[a-zA-Z0-9-.]+|\[[^\]]+\]):[0-9]+/g
       );
 
       if (url) {
+        console.log(`${chalk.green(message)}`);
+
         // get port from url
         const port = url[0].split(":")[2];
 
@@ -61,18 +70,24 @@ export const startScript = async ({
             if (stdout) {
               const pid = stdout.toString().trim();
               if (pid) {
-                console.log(`${chalk.green(message)}\nPID: ${pid}`);
+                console.log(`\nPID: ${pid}`);
+                portFound = true;
                 if (server.watch) watch({ ci, server, dir, start });
               }
             }
           }
         );
-      } else if (isDocker()) {
+      } else if (
+        process.env.CONTAINER ||
+        process.env.DOCKER_ENV ||
+        process.env.HOSTNAME
+      ) {
         exec(`lsof -i -P -n | grep LISTEN | awk '{print $9}'`, (_, stdout) => {
           if (stdout) {
             const port = stdout.toString().split(":")[1];
             if (port) {
               console.log(`http://${server.host}:${port}`);
+              portFound = true;
             }
           }
         });

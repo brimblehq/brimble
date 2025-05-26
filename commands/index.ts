@@ -9,3 +9,4 @@ export { default as logout } from "./logout";
 export { default as watch } from "./watch";
 export { default as list } from "./list";
 export { default as env } from "./env";
+export { default as mcpProxy } from "./mcpProxy";
