@@ -56,34 +56,34 @@ interface ExtendedRequest extends Request {
 }
 
 const commands = [
-		"initialize",
-		"tools/list",
-		"tools/call",
-		
-		"resources/list",
-		"resources/read",
-		"resources/subscribe",
-		"resources/unsubscribe",
-		
-		"prompts/list",
-		"prompts/get",
-		
-		"completion/complete",
-		
-		"logging/setLevel",
-		
-		"notifications/initialized",
-		"notifications/cancelled",
-		"notifications/progress",
-		"notifications/message",
-		"notifications/roots_list_changed",
-		"notifications/tool_list_changed",
-		"notifications/prompt_list_changed",
-		"notifications/resource_list_changed",
-		"notifications/resource_updated",
-		
-		"ping",
-	]
+  "initialize",
+  "tools/list",
+  "tools/call",
+  
+  "resources/list",
+  "resources/read",
+  "resources/subscribe",
+  "resources/unsubscribe",
+  
+  "prompts/list",
+  "prompts/get",
+  
+  "completion/complete",
+  
+  "logging/setLevel",
+  
+  "notifications/initialized",
+  "notifications/cancelled",
+  "notifications/progress",
+  "notifications/message",
+  "notifications/roots_list_changed",
+  "notifications/tool_list_changed",
+  "notifications/prompt_list_changed",
+  "notifications/resource_list_changed",
+  "notifications/resource_updated",
+  
+  "ping",
+]
 
 const logger: Logger = createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -117,8 +117,11 @@ class MCPSession {
   public options: any;
   public startTime: number;
   public messageCount: number;
+  public globalConfig: GlobalConfig;
+  private stdoutBuffer: string = '';
+  private stderrBuffer: string = '';
 
-  constructor(options: any = {}) {
+  constructor(options: any = {}, globalConfig: GlobalConfig) {
     this.id = uuidv4();
     this.initialized = false;
     this.process = null;
@@ -129,6 +132,9 @@ class MCPSession {
     this.options = options;
     this.startTime = Date.now();
     this.messageCount = 0;
+    this.globalConfig = globalConfig;
+    this.stdoutBuffer = '';
+    this.stderrBuffer = '';
   }
 
   isValidJSON(str: string): boolean {
@@ -140,7 +146,7 @@ class MCPSession {
     }
   }
 
-  startMCPProcess(command: string, args: string[], globalConfig: GlobalConfig): void {
+  startMCPProcess(command: string, args: string[]): void {
     const sessionSpinner: Ora = ora({
       text: `Starting MCP process: ${chalk.cyan(command)} ${chalk.gray(args.join(' '))}`,
       spinner: 'dots'
@@ -151,7 +157,7 @@ class MCPSession {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
-          FORCE_COLOR: globalConfig.color ? '1' : '0'
+          FORCE_COLOR: this.globalConfig.color ? '1' : '0'
         }
       });
 
@@ -159,9 +165,9 @@ class MCPSession {
         `Process started ${chalk.green('✓')} PID: ${chalk.yellow(this.process.pid)}`
       );
 
-      this.setupProcessHandlers(globalConfig);
+      this.setupProcessHandlers();
       
-      if (globalConfig.verbose) {
+      if (this.globalConfig.verbose) {
         logger.info(`Session ${chalk.magenta(this.id.slice(0, 8))} created for process ${this.process.pid}`);
       }
 
@@ -171,38 +177,57 @@ class MCPSession {
     }
   }
 
-  setupProcessHandlers(globalConfig: GlobalConfig): void {
+  setupProcessHandlers(): void {
     if (!this.process) return;
 
-    this.process.stdout?.on('data', (data: Buffer) => {
-      const messages = data.toString().trim().split('\n');
-      messages.forEach(message => {
-        const trimmed = message.trim();
-        if (!trimmed) return;
+    // Helper function to process buffered messages
+    const processBuffer = (buffer: string, source: 'stdout' | 'stderr'): string => {
+      let remainingBuffer = buffer;
+      const lines = buffer.split('\n');
+      
+      // Process all complete lines (all but the last one, which might be incomplete)
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
 
-        if (this.isValidJSON(trimmed)) {
+        if (this.isValidJSON(line)) {
           try {
-            const response: MCPMessage = JSON.parse(trimmed);
+            const response: MCPMessage = JSON.parse(line);
             this.handleMCPResponse(response);
             this.messageCount++;
             
-            if (globalConfig.verbose) {
-              logger.debug(`📥 Received: ${chalk.gray(JSON.stringify(response, null, 2))}`);
+            if (this.globalConfig.verbose) {
+              logger.debug(`📥 Received from ${source}: ${chalk.gray(JSON.stringify(response, null, 2))}`);
             }
           } catch (error: any) {
-            logger.error(`Failed to parse MCP response: ${error.message}`);
+            logger.error(`Failed to parse MCP response from ${source}: ${error.message}`);
           }
         } else {
-          if (globalConfig.verbose) {
-            logger.info(`📢 Server: ${chalk.italic(trimmed)}`);
+          // Handle non-JSON messages
+          if (line.includes('✅ Stripe MCP Server running on stdio')) {
+            if (this.globalConfig.verbose) {
+              logger.info(`📢 Server ready: ${chalk.green(line)}`);
+            }
+          } else if (line.includes('🚨') || line.toLowerCase().includes('error')) {
+            logger.warn(`🔴 MCP Server Error: ${chalk.red(line)}`);
+          } else if (this.globalConfig.verbose) {
+            logger.info(`📢 Server (${source}): ${chalk.italic(line)}`);
           }
         }
-      });
+      }
+      
+      // Return the last incomplete line to be buffered
+      return lines[lines.length - 1] || '';
+    };
+
+    this.process.stdout?.on('data', (data: Buffer) => {
+      this.stdoutBuffer += data.toString();
+      this.stdoutBuffer = processBuffer(this.stdoutBuffer, 'stdout');
     });
 
     this.process.stderr?.on('data', (data: Buffer) => {
-      const errorMessage = data.toString().trim();
-      logger.warn(`🔴 MCP Server Error: ${chalk.red(errorMessage)}`);
+      this.stderrBuffer += data.toString();
+      this.stderrBuffer = processBuffer(this.stderrBuffer, 'stderr');
     });
 
     this.process.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
@@ -228,16 +253,28 @@ class MCPSession {
   }
 
   handleMCPResponse(response: MCPMessage): void {
-    if (response.id && this.responseCallbacks.has(response.id)) {
+    if (this.globalConfig.verbose) {
+      logger.debug(`🎯 Handling response: ID=${response.id} (type=${typeof response.id}), Method=${response.method}`);
+    }
+    
+    if (response.id !== undefined && response.id !== null && this.responseCallbacks.has(response.id)) {
       const callback = this.responseCallbacks.get(response.id);
       if (callback) {
         this.responseCallbacks.delete(response.id);
         callback(response);
+        if (this.globalConfig.verbose) {
+          logger.debug(`✅ Successfully delivered response for ID: ${response.id}`);
+        }
+      }
+    } else {
+      if (this.globalConfig.verbose) {
+        logger.debug(`❌ No callback found for response ID: ${response.id} (type=${typeof response.id})`);
+        logger.debug(`📋 Active callbacks: ${Array.from(this.responseCallbacks.keys()).join(', ')}`);
       }
     }
   }
 
-  sendMessage(message: MCPMessage, globalConfig: GlobalConfig): Promise<MCPMessage> {
+  sendMessage(message: MCPMessage): Promise<MCPMessage> {
     return new Promise((resolve, reject) => {
       if (!this.process || this.process.killed) {
         reject(new Error('MCP process not available'));
@@ -251,16 +288,32 @@ class MCPSession {
       const messageStr = JSON.stringify(message);
       this.process.stdin?.write(messageStr + '\n');
 
-      if (globalConfig.verbose) {
+      if (this.globalConfig.verbose) {
         logger.debug(`📤 Sent: ${chalk.gray(messageStr)}`);
       }
 
+      // Method-specific timeouts
+      const getTimeoutForMethod = (method?: string): number => {
+        if (!method) return 30000;
+        
+        // Longer timeouts for operations that might take time
+        if (method.includes('tools/list') || method.includes('tools/call')) {
+          return 120000; // 2 minutes for tools operations
+        }
+        if (method.includes('resources/') || method.includes('prompts/')) {
+          return 60000; // 1 minute for resource/prompt operations
+        }
+        return 30000; // 30 seconds for other operations
+      };
+
+      const timeoutMs = getTimeoutForMethod(message.method);
+      
       const timeoutId = setTimeout(() => {
         if (message.id && this.responseCallbacks.has(message.id)) {
           this.responseCallbacks.delete(message.id);
-          reject(new Error(`Request timeout after 30s for method: ${message.method}`));
+          reject(new Error(`Request timeout after ${timeoutMs/1000}s for method: ${message.method}`));
         }
-      }, 30000);
+      }, timeoutMs);
 
       if (message.id) {
         const originalCallback = this.responseCallbacks.get(message.id);
@@ -274,7 +327,7 @@ class MCPSession {
     });
   }
 
-  async initialize(params: any, globalConfig: GlobalConfig): Promise<MCPMessage> {
+  async initialize(params: any): Promise<MCPMessage> {
     if (this.initialized && this.initResponse) {
       return this.initResponse;
     }
@@ -289,13 +342,13 @@ class MCPSession {
         params
       };
 
-      const response = await this.sendMessage(initMessage, globalConfig);
+      const response = await this.sendMessage(initMessage);
       this.initialized = true;
       this.initResponse = response;
       
       initSpinner.succeed(`MCP session initialized ${chalk.green('✓')}`);
       
-      if (globalConfig.verbose && response.result) {
+      if (this.globalConfig.verbose && response.result) {
         const serverInfo = response.result.serverInfo;
         if (serverInfo) {
           logger.info(`Connected to ${chalk.cyan(serverInfo.name)} v${chalk.yellow(serverInfo.version)}`);
@@ -309,7 +362,7 @@ class MCPSession {
     }
   }
 
-  async callMethod(method: string, params: any = {}, globalConfig: GlobalConfig): Promise<MCPMessage> {
+  async callMethod(method: string, params: any = {}): Promise<MCPMessage> {
     if (!this.initialized && method !== 'initialize') {
       throw new Error('Server not initialized');
     }
@@ -321,7 +374,7 @@ class MCPSession {
       params
     };
 
-    return await this.sendMessage(message, globalConfig);
+    return await this.sendMessage(message);
   }
 
   cleanup(): void {
@@ -396,6 +449,8 @@ function showExamples(): void {
     `${chalk.blue.bold('Usage Examples')}` +
     `\n\n${chalk.yellow('Start MCP proxy:')}` +
     `\n  brimble mcp start --command \"node ./dist/index.js\"` +
+    `\n\n${chalk.yellow('Stripe MCP Server:')}` +
+    `\n  brimble mcp start --command \"node stripe-mcp/dist/index.js --tools=all --api-key=sk_test_...\"` +
     `\n\n${chalk.yellow('With custom port and verbose output:')}` +
     `\n  brimble mcp start --command \"node ./dist/index.js\" --port 9000 --verbose` +
     `\n\n${chalk.yellow('Interactive setup:')}` +
@@ -454,9 +509,9 @@ async function getSession(req: ExtendedRequest, res: Response, next: NextFunctio
     
     if (!activeSessions.has(sessionKey)) {
       try {
-        const session = new MCPSession();
+        const session = new MCPSession({}, globalConfig);
         if (globalConfig.spawnCommand && globalConfig.spawnArgs) {
-          session.startMCPProcess(globalConfig.spawnCommand, globalConfig.spawnArgs, globalConfig);
+          session.startMCPProcess(globalConfig.spawnCommand, globalConfig.spawnArgs);
         }
         activeSessions.set(sessionKey, session);
       } catch (error: any) {
@@ -576,7 +631,6 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   const app: Express = express();
   const PORT = parseInt(options.port || '3001');
 
-  // Middleware
   app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -617,11 +671,11 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
       logger.info(`📋 Processing ${chalk.cyan(method)} ${id ? `(id: ${id})` : ''}`);
 
       if (method === 'initialize') {
-        response = await req.mcpSession!.initialize(params, globalConfig);
+        response = await req.mcpSession!.initialize(params);
       } else if (commands.includes(method)) {
-        response = await req.mcpSession!.callMethod(method, params, globalConfig);
+        response = await req.mcpSession!.callMethod(method, params);
       } else if (method.startsWith('custom/') || method.includes('/')) {
-        response = await req.mcpSession!.callMethod(method, params, globalConfig);
+        response = await req.mcpSession!.callMethod(method, params);
       } else {
         response = {
           jsonrpc: "2.0",
@@ -701,7 +755,7 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   app.post('/debug/mcp', sessionMiddleware, async (req: ExtendedRequest, res: Response) => {
     try {
       const { method, params = {} } = req.body;
-      const response = await req.mcpSession!.callMethod(method, params, globalConfig);
+      const response = await req.mcpSession!.callMethod(method, params);
       res.json(response);
     } catch (error: any) {
       res.status(500).json({ 
