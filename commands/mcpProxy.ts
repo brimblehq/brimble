@@ -461,7 +461,10 @@ async function detectSSECapabilities(command: string, args: string[], options: M
       const endpointPatterns = [
         /endpoint.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
         /path.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
-        /route.*['"](\/[^'"]*mcp[^'"]*)['"]/i
+        /route.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
+        /endpoint.*['"](\/[^'"]*sse[^'"]*)['"]/i,
+        /path.*['"](\/[^'"]*sse[^'"]*)['"]/i,
+        /route.*['"](\/[^'"]*sse[^'"]*)['"]/i
       ];
 
       for (const pattern of ssePatterns) {
