@@ -8,7 +8,8 @@ import ora, { Ora } from 'ora';
 import boxen from 'boxen';
 import inquirer from 'inquirer';
 import { createLogger, format, transports, Logger } from 'winston';
-import { verifyKey } from "@unkey/api";
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import axios from 'axios';
 
 interface MCPMessage {
   jsonrpc: string;
@@ -40,6 +41,9 @@ interface GlobalConfig {
   color: boolean;
   spawnCommand?: string;
   spawnArgs?: string[];
+  hasSSE?: boolean;
+  ssePort?: number;
+  sseEndpoint?: string;
 }
 
 interface SessionStats {
@@ -105,6 +109,36 @@ const logger: Logger = createLogger({
     new transports.Console()
   ]
 });
+
+function createErrorResponse(code: number, message: string, id: string | number | null = null): MCPMessage {
+  return {
+    jsonrpc: "2.0",
+    error: {
+      code,
+      message
+    },
+    id
+  };
+}
+
+async function verifyApiKey(apiKey: string, ownerId: string): Promise<void> {
+  if (!apiKey) {
+    throw new Error("Unauthorized: x-api-key header is required");
+  }
+
+  try {
+    await axios.post(`https://core.brimble.io/v1/api-key/validate`, {
+      apiKey,
+      ownerId,
+    });
+  } catch (error) {
+    throw new Error('Invalid API key');
+  }
+}
+
+function getSessionKey(sessionId: string, apiKey: string): string {
+  return `${sessionId}-${apiKey.slice(-8)}`;
+}
 
 class MCPSession {
   public id: string;
@@ -180,12 +214,10 @@ class MCPSession {
   setupProcessHandlers(): void {
     if (!this.process) return;
 
-    // Helper function to process buffered messages
     const processBuffer = (buffer: string, source: 'stdout' | 'stderr'): string => {
       let remainingBuffer = buffer;
       const lines = buffer.split('\n');
       
-      // Process all complete lines (all but the last one, which might be incomplete)
       for (let i = 0; i < lines.length - 1; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -203,7 +235,6 @@ class MCPSession {
             logger.error(`Failed to parse MCP response from ${source}: ${error.message}`);
           }
         } else {
-          // Handle non-JSON messages
           if (line.includes('✅ Stripe MCP Server running on stdio')) {
             if (this.globalConfig.verbose) {
               logger.info(`📢 Server ready: ${chalk.green(line)}`);
@@ -216,7 +247,6 @@ class MCPSession {
         }
       }
       
-      // Return the last incomplete line to be buffered
       return lines[lines.length - 1] || '';
     };
 
@@ -292,18 +322,16 @@ class MCPSession {
         logger.debug(`📤 Sent: ${chalk.gray(messageStr)}`);
       }
 
-      // Method-specific timeouts
       const getTimeoutForMethod = (method?: string): number => {
         if (!method) return 30000;
         
-        // Longer timeouts for operations that might take time
         if (method.includes('tools/list') || method.includes('tools/call')) {
-          return 120000; // 2 minutes for tools operations
+          return 120000;
         }
         if (method.includes('resources/') || method.includes('prompts/')) {
-          return 60000; // 1 minute for resource/prompt operations
+          return 60000;
         }
-        return 30000; // 30 seconds for other operations
+        return 30000;
       };
 
       const timeoutMs = getTimeoutForMethod(message.method);
@@ -399,12 +427,88 @@ class MCPSession {
   }
 }
 
-function parseCommand(commandStr: string): { command: string; args: string[] } {
-  const parts = commandStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
-  const command = parts[0]?.replace(/['"]/g, '') || '';
-  const args = parts.slice(1).map(arg => arg.replace(/['"]/g, ''));
-  
-  return { command, args };
+async function detectSSECapabilities(command: string, args: string[], options: MCPOptions): Promise<{ hasSSE: boolean; port?: number; endpoint?: string }> {
+  return new Promise((resolve) => {
+    logger.info(`🔍 Checking if MCP server has SSE capabilities...`);
+    
+    const tempProcess = spawn(command, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
+
+    let hasDetectedSSE = false;
+    let ssePort: number | undefined;
+    let sseEndpoint: string | undefined;
+    
+    const timeout = setTimeout(() => {
+      if (!hasDetectedSSE) {
+        tempProcess.kill();
+        resolve({ hasSSE: false });
+      }
+    }, 5000); 
+
+    const checkOutput = (data: Buffer, source: 'stdout' | 'stderr') => {
+      const output = data.toString();
+      
+      const ssePatterns = [
+        /server.*running.*(?:on|at).*(?:port\s*)?(\d+)/i,
+        /listening.*(?:on|at).*(?:port\s*)?(\d+)/i,
+        /sse.*server.*(?:port\s*)?(\d+)/i,
+        /http.*server.*(?:port\s*)?(\d+)/i,
+        /server.*started.*(?:port\s*)?(\d+)/i
+      ];
+
+      const endpointPatterns = [
+        /endpoint.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
+        /path.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
+        /route.*['"](\/[^'"]*mcp[^'"]*)['"]/i
+      ];
+
+      for (const pattern of ssePatterns) {
+        const match = output.match(pattern);
+        if (match && match[1]) {
+          hasDetectedSSE = true;
+          ssePort = parseInt(match[1]) || Number(options.port);
+          logger.info(`✅ Detected SSE server on port ${ssePort}`);
+          break;
+        }
+      }
+
+      for (const pattern of endpointPatterns) {
+        const match = output.match(pattern);
+        if (match && match[1]) {
+          sseEndpoint = match[1];
+          logger.info(`✅ Detected SSE endpoint: ${sseEndpoint}`);
+          break;
+        }
+      }
+
+      if (hasDetectedSSE) {
+        clearTimeout(timeout);
+        tempProcess.kill();
+        resolve({ 
+          hasSSE: true, 
+          port: ssePort, 
+          endpoint: sseEndpoint || '/mcp' 
+        });
+      }
+    };
+
+    tempProcess.stdout?.on('data', (data) => checkOutput(data, 'stdout'));
+    tempProcess.stderr?.on('data', (data) => checkOutput(data, 'stderr'));
+
+    tempProcess.on('exit', () => {
+      if (!hasDetectedSSE) {
+        clearTimeout(timeout);
+        resolve({ hasSSE: false });
+      }
+    });
+
+    tempProcess.on('error', () => {
+      clearTimeout(timeout);
+      resolve({ hasSSE: false });
+    });
+  });
 }
 
 function displayBanner(quiet: boolean): void {
@@ -420,6 +524,14 @@ function displayBanner(quiet: boolean): void {
   );
   
   console.log(chalk.gray('  Server-Sent Events Proxy for MCP Servers\n'));
+}
+
+function parseCommand(commandStr: string): { command: string; args: string[] } {
+  const parts = commandStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  const command = parts[0]?.replace(/['"]/g, '') || '';
+  const args = parts.slice(1).map(arg => arg.replace(/['"]/g, ''));
+  
+  return { command, args };
 }
 
 function displayServerInfo(port: number, command: string, args: string[]): void {
@@ -472,40 +584,14 @@ function showExamples(): void {
 }
 
 async function getSession(req: ExtendedRequest, res: Response, next: NextFunction, globalConfig: GlobalConfig): Promise<void> {
-  const apiKey = req.headers['x-api-key'] as string;
-
-  if (!apiKey) {
-    res.status(401).json({
-      jsonrpc: "2.0",
-      error: {
-        code: -32000,
-        message: "Unauthorized: x-api-key header is required"
-      },
-      id: null
-    });
-    return;
-  }
-
   try {
-    const result = await verifyKey({
-      apiId: process.env.UNKEY_APP_ID!,
-      key: apiKey
-    });
+    const apiKey = req.headers['x-api-key'] as string;
+    const ownerId = req.headers['x-owner-id'] as string;
 
-    if (result.error) {
-      res.status(401).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32000,
-          message: result.error.message
-        },
-        id: null
-      });
-      return;
-    }
+    await verifyApiKey(apiKey, ownerId);
 
     const sessionId = (req.headers['x-session-id'] as string) || (req.query.session as string) || 'default';
-    const sessionKey = `${sessionId}-${apiKey.slice(-8)}`;
+    const sessionKey = getSessionKey(sessionId, apiKey);
     
     if (!activeSessions.has(sessionKey)) {
       try {
@@ -516,14 +602,7 @@ async function getSession(req: ExtendedRequest, res: Response, next: NextFunctio
         activeSessions.set(sessionKey, session);
       } catch (error: any) {
         logger.error(`Failed to create session: ${error.message}`);
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: `Failed to create session: ${error.message}`
-          },
-          id: null
-        });
+        res.status(500).json(createErrorResponse(-32000, `Failed to create session: ${error.message}`));
         return;
       }
     }
@@ -531,14 +610,7 @@ async function getSession(req: ExtendedRequest, res: Response, next: NextFunctio
     req.mcpSession = activeSessions.get(sessionKey);
     next();
   } catch (error: any) {
-    res.status(500).json({
-      jsonrpc: "2.0",
-      error: {
-        code: -32000,
-        message: `Authentication error: ${error.message}`
-      },
-      id: null
-    });
+    res.status(401).json(createErrorResponse(-32000, `Authentication error: ${error.message}`));
   }
 }
 
@@ -548,18 +620,6 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   if (options.examples) {
     showExamples();
     return;
-  }
-
-  const requiredEnvVars = {
-    UNKEY_APP_ID: process.env.UNKEY_APP_ID,
-    UNKEY_ROOT_KEY: process.env.UNKEY_ROOT_KEY
-  };
-
-  for (const [name, value] of Object.entries(requiredEnvVars)) {
-    if (!value) {
-      logger.error(`${name} Unable to start MCP proxy server. Please set the environment variable in your env`);
-      process.exit(1);
-    }
   }
 
   const globalConfig: GlobalConfig = {
@@ -625,6 +685,17 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   const { command, args } = parseCommand(commandStr);
   globalConfig.spawnCommand = command;
   globalConfig.spawnArgs = args;
+
+  const sseDetection = await detectSSECapabilities(command, args, options);
+  globalConfig.hasSSE = sseDetection.hasSSE;
+  globalConfig.ssePort = sseDetection.port;
+  globalConfig.sseEndpoint = sseDetection.endpoint;
+
+  if (globalConfig.hasSSE) {
+    logger.info(`🔗 Detected SSE-enabled MCP server, will proxy to ${chalk.cyan(`http://localhost:${globalConfig.ssePort}${globalConfig.sseEndpoint}`)}`);
+  } else {
+    logger.info(`📡 Standard MCP server detected, using stdio proxy mode`);
+  }
   
   displayBanner(globalConfig.quiet);
 
@@ -646,163 +717,256 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   }
 
   const sessionMiddleware = (req: ExtendedRequest, res: Response, next: NextFunction) => {
-    getSession(req, res, next, globalConfig);
+    try {
+      if (globalConfig.hasSSE) {
+        const apiKey = req.headers['x-api-key'] as string;
+        const ownerId = req.headers['x-owner-id'] as string;
+        verifyApiKey(apiKey, ownerId);
+        next();
+      } else {
+        getSession(req, res, next, globalConfig);
+      }
+    } catch (error: any) {
+      res.status(401).json(createErrorResponse(-32000, "Unauthorized: check your x-api-key header"));
+    }
   };
 
-  app.all('/mcp', sessionMiddleware, async (req: ExtendedRequest, res: Response) => {
-    const startTime = Date.now();
+  if (globalConfig.hasSSE && globalConfig.ssePort && globalConfig.sseEndpoint) {
+    logger.info(`🚀 Starting SSE-enabled MCP server...`);
     
-    try {
-      let response: MCPMessage;
-      const { method, params = {}, id = null } = req.body || {};
+    const mcpProcess = spawn(globalConfig.spawnCommand!, globalConfig.spawnArgs!, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
 
-      if (!method) {
-        res.status(400).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: "Bad Request: Missing method"
-          },
-          id
-        });
-        return;
+    mcpProcess.stdout?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output && !globalConfig.quiet) {
+        logger.info(`📢 MCP Server: ${chalk.italic(output)}`);
       }
+    });
 
-      logger.info(`📋 Processing ${chalk.cyan(method)} ${id ? `(id: ${id})` : ''}`);
-
-      if (method === 'initialize') {
-        response = await req.mcpSession!.initialize(params);
-      } else if (commands.includes(method)) {
-        response = await req.mcpSession!.callMethod(method, params);
-      } else if (method.startsWith('custom/') || method.includes('/')) {
-        response = await req.mcpSession!.callMethod(method, params);
-      } else {
-        response = {
-          jsonrpc: "2.0",
-          error: {
-            code: -32601,
-            message: `Method not found: ${method}`
-          },
-          id
-        };
+    mcpProcess.stderr?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output) {
+        if (output.includes('error') || output.includes('Error')) {
+          logger.warn(`🔴 MCP Server: ${chalk.red(output)}`);
+        } else if (!globalConfig.quiet) {
+          logger.info(`📢 MCP Server: ${chalk.italic(output)}`);
+        }
       }
+    });
 
-      const duration = Date.now() - startTime;
-      logger.info(`✅ ${chalk.cyan(method)} completed in ${chalk.yellow(duration)}ms`);
+    mcpProcess.on('exit', (code) => {
+      logger.error(`💥 MCP Server process exited with code ${code}`);
+    });
 
-      const acceptHeader = req.headers.accept || '';
-      
-      if (acceptHeader.includes('text/event-stream')) {
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': '*',
-          'Access-Control-Allow-Methods': '*'
-        });
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-        res.write('event: message\n');
-        res.write(`data: ${JSON.stringify({ ...response, id })}\n\n`);
-        res.end();
-      } else {
-        res.json({ ...response, id });
-      }
-
-    } catch (error: any) {
-      const duration = Date.now() - startTime;
-      logger.error(`❌ Request failed in ${duration}ms: ${error.message}`);
-      
-      const errorResponse: MCPMessage = {
-        jsonrpc: "2.0",
-        error: {
-          code: -32000,
-          message: error.message.includes('not initialized') 
-            ? "Bad Request: Server not initialized"
-            : `Internal error: ${error.message}`
+    const proxyMiddleware = createProxyMiddleware({
+      target: `http://localhost:${globalConfig.ssePort}`,
+      changeOrigin: true,
+      pathRewrite: {
+        '^/mcp': globalConfig.sseEndpoint
+      },
+      on: {
+        proxyReq: (proxyReq: any, req: any) => {
+          if (globalConfig.verbose) {
+            logger.debug(`🔄 Proxying ${req.method} ${req.url} to MCP server`);
+          }
         },
-        id: req.body?.id || null
-      };
+        error: (err: any, req: any, res: any) => {
+          logger.error(`Proxy error: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(502).json({
+              jsonrpc: "2.0",
+              error: {
+                code: -32000,
+                message: `Proxy error: ${err.message}`
+              },
+              id: null
+            });
+          }
+        },
+      },
+    });
 
-      res.status(500).json(errorResponse);
-    }
-  });
+    app.all('/mcp', sessionMiddleware, proxyMiddleware);
+    
+    const cleanup = (): void => {
+      console.log(chalk.yellow('\n🧹 Stopping MCP server...'));
+      mcpProcess.kill();
+      process.exit(0);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+
+  } else {
+    app.all('/mcp', sessionMiddleware, async (req: ExtendedRequest, res: Response) => {
+      const startTime = Date.now();
+      
+      try {
+        let response: MCPMessage;
+        const { method, params = {}, id = null } = req.body || {};
+
+        if (!method) {
+          res.status(400).json(createErrorResponse(-32000, "Bad Request: Missing method", id));
+          return;
+        }
+
+        logger.info(`📋 Processing ${chalk.cyan(method)} ${id ? `(id: ${id})` : ''}`);
+
+        if (method === 'initialize') {
+          response = await req.mcpSession!.initialize(params);
+        } else if (commands.includes(method)) {
+          response = await req.mcpSession!.callMethod(method, params);
+        } else if (method.startsWith('custom/') || method.includes('/')) {
+          response = await req.mcpSession!.callMethod(method, params);
+        } else {
+          response = {
+            jsonrpc: "2.0",
+            error: {
+              code: -32601,
+              message: `Method not found: ${method}`
+            },
+            id
+          };
+        }
+
+        const duration = Date.now() - startTime;
+        logger.info(`✅ ${chalk.cyan(method)} completed in ${chalk.yellow(duration)}ms`);
+
+        const acceptHeader = req.headers.accept || '';
+        
+        if (acceptHeader.includes('text/event-stream')) {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Methods': '*'
+          });
+
+          res.write('event: message\n');
+          res.write(`data: ${JSON.stringify({ ...response, id })}\n\n`);
+          res.end();
+        } else {
+          res.json({ ...response, id });
+        }
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        logger.error(`❌ Request failed in ${duration}ms: ${error.message}`);
+        
+        const errorResponse = createErrorResponse(
+          -32000,
+          error.message.includes('not initialized') 
+            ? "Bad Request: Server not initialized"
+            : `Internal error: ${error.message}`,
+          req.body?.id || null
+        );
+
+        res.status(500).json(errorResponse);
+      }
+    });
+  }
 
   app.get('/health', (req: Request, res: Response) => {
     const apiKey = req.headers['x-api-key'];
-    const sessions: any[] = [];
     
-    activeSessions.forEach((session, key) => {
-      sessions.push({
-        key: key.split('-')[0],
-        ...session.getStats()
+    if (globalConfig.hasSSE) {
+      res.json({ 
+        status: 'ok', 
+        mode: 'sse',
+        ssePort: globalConfig.ssePort,
+        sseEndpoint: globalConfig.sseEndpoint,
+        timestamp: new Date().toISOString(),
+        authenticated: !!apiKey,
+        version: '2.0.0'
       });
-    });
+    } else {
+      const sessions: any[] = [];
+      
+      activeSessions.forEach((session, key) => {
+        sessions.push({
+          key: key.split('-')[0],
+          ...session.getStats()
+        });
+      });
 
-    res.json({ 
-      status: 'ok', 
-      activeSessions: activeSessions.size,
-      sessions,
-      timestamp: new Date().toISOString(),
-      authenticated: !!apiKey,
-      command: `${command} ${args.join(' ')}`,
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      version: '2.0.0'
-    });
-  });
-
-  app.post('/debug/mcp', sessionMiddleware, async (req: ExtendedRequest, res: Response) => {
-    try {
-      const { method, params = {} } = req.body;
-      const response = await req.mcpSession!.callMethod(method, params);
-      res.json(response);
-    } catch (error: any) {
-      res.status(500).json({ 
-        error: error.message,
-        timestamp: new Date().toISOString()
+      res.json({ 
+        status: 'ok', 
+        mode: 'stdio',
+        activeSessions: activeSessions.size,
+        sessions,
+        timestamp: new Date().toISOString(),
+        authenticated: !!apiKey,
+        version: '2.0.0'
       });
     }
   });
 
-  app.get('/sessions', (req: Request, res: Response) => {
-    const sessions: any[] = [];
-    activeSessions.forEach((session, key) => {
-      sessions.push({
-        key,
-        ...session.getStats()
-      });
+  if (!globalConfig.hasSSE) {
+    app.post('/debug/mcp', sessionMiddleware, async (req: ExtendedRequest, res: Response) => {
+      try {
+        const { method, params = {} } = req.body;
+        const response = await req.mcpSession!.callMethod(method, params);
+        res.json(response);
+      } catch (error: any) {
+        res.status(500).json({ 
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
-    res.json({ sessions });
-  });
+
+    app.get('/sessions', (req: Request, res: Response) => {
+      const sessions: any[] = [];
+      activeSessions.forEach((session, key) => {
+        sessions.push({
+          key,
+          ...session.getStats()
+        });
+      });
+      res.json({ sessions });
+    });
+
+    const cleanup = (): void => {
+      console.log(chalk.yellow('\n🧹 Cleaning up sessions...'));
+      const spinner: Ora = ora('Stopping sessions').start();
+      
+      let cleaned = 0;
+      activeSessions.forEach((session) => {
+        session.cleanup();
+        cleaned++;
+      });
+      
+      spinner.succeed(`Cleaned up ${cleaned} sessions`);
+      console.log(chalk.green('👋 Goodbye!'));
+      process.exit(0);
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+  }
 
   app.options('*', (req: Request, res: Response) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, x-session-id, x-api-key');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, x-session-id, x-api-key, x-owner-id');
     res.sendStatus(200);
   });
 
-  const cleanup = (): void => {
-    console.log(chalk.yellow('\n🧹 Cleaning up sessions...'));
-    const spinner: Ora = ora('Stopping sessions').start();
-    
-    let cleaned = 0;
-    activeSessions.forEach((session) => {
-      session.cleanup();
-      cleaned++;
-    });
-    
-    spinner.succeed(`Cleaned up ${cleaned} sessions`);
-    console.log(chalk.green('👋 Goodbye!'));
-    process.exit(0);
-  };
-
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
-
   const server = app.listen(PORT, () => {
     displayServerInfo(PORT, command, args);
+    
+    if (globalConfig.hasSSE) {
+      console.log(chalk.blue(`🔗 Mode: SSE (forwarding to port ${globalConfig.ssePort})`));
+    } else {
+      console.log(chalk.blue('📡 Mode: Stdio'));
+    }
   });
 
   server.on('error', (error: any) => {
