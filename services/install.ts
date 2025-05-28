@@ -10,7 +10,7 @@ type IOpt = {
 export const installScript = ({ _install, installArgs, dir }: IOpt) => {
   return new Promise((resolve, reject) => {
     console.log(
-      `${chalk.green(`${_install.toUpperCase()}: Installing dependencies...`)}`
+      `${chalk.green(`${_install.toUpperCase()}: Installing dependencies...`)}`,
     );
     const install = spawn(_install, installArgs, {
       cwd: dir,

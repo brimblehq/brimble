@@ -54,7 +54,7 @@ export const startScript = async ({
 
       const message = data.toString();
       const url = message.match(
-        /http:\/\/(?:[a-zA-Z0-9-.]+|\[[^\]]+\]):[0-9]+/g
+        /http:\/\/(?:[a-zA-Z0-9-.]+|\[[^\]]+\]):[0-9]+/g,
       );
 
       if (url) {
@@ -75,7 +75,7 @@ export const startScript = async ({
                 if (server.watch) watch({ ci, server, dir, start });
               }
             }
-          }
+          },
         );
       } else if (
         process.env.CONTAINER ||
@@ -116,8 +116,8 @@ export const startScript = async ({
   } else {
     console.error(
       `${chalk.red(
-        `Start failed with error: This folder ("${dir}") doesn't contain index.html`
-      )}`
+        `Start failed with error: This folder ("${dir}") doesn't contain index.html`,
+      )}`,
     );
     process.exit(1);
   }
@@ -126,13 +126,13 @@ export const startScript = async ({
 const normalStart = ({ dir, server }: { dir: string; server: any }) => {
   try {
     const { files, folder } = dirValidator(
-      path.join(dir, server.outputDirectory)
+      path.join(dir, server.outputDirectory),
     );
     if (files.includes("index.html")) {
       return customServer(server.port, server.host, folder, server.isOpen);
     } else {
       throw new Error(
-        `This folder ("${dir}/${server.outputDirectory}") doesn't contain index.html`
+        `This folder ("${dir}/${server.outputDirectory}") doesn't contain index.html`,
       );
     }
   } catch (error) {

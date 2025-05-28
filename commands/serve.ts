@@ -2,7 +2,7 @@ import chalk from "chalk";
 import fs from "fs";
 import path from "path";
 import getPort from "get-port";
-import express, { Application } from "express";
+import express, { Application, RequestHandler } from "express";
 import inquirer from "inquirer";
 import { detectFramework, log } from "@brimble/utils";
 import { serveStack } from "../services";
@@ -19,7 +19,7 @@ export const customServer = (
   port: number,
   host: string,
   dir: string,
-  isOpen?: boolean
+  isOpen?: boolean,
 ) => {
   const app: Application = express();
   app.disable("x-powered-by");
@@ -37,12 +37,12 @@ export const customServer = (
             return fs.existsSync(`${path}.html`)
               ? `${path}.html`
               : fs.existsSync(`${path}/index.html`)
-              ? `${path}/index.html`
-              : "index.html";
+                ? `${path}/index.html`
+                : "index.html";
           },
         },
       ],
-    })
+    }) as unknown as RequestHandler
   );
   app.use("/", express.static(dir));
   app.get("*", (req, res) => {
@@ -81,33 +81,33 @@ const serve = async (directory: string = ".", options: IOption) => {
       let install = options.installCommand
         ? options.installCommand.split(" ")[0]
         : installCommand
-        ? installCommand.split(" ")[0]
-        : "";
+          ? installCommand.split(" ")[0]
+          : "";
       let installArgs = options.installCommand
         ? options.installCommand.split(" ").slice(1)
         : installCommand
-        ? installCommand.split(" ").slice(1)
-        : [];
+          ? installCommand.split(" ").slice(1)
+          : [];
       let build = options.buildCommand
         ? options.buildCommand.split(" ")[0]
         : buildCommand
-        ? buildCommand.split(" ")[0]
-        : "";
+          ? buildCommand.split(" ")[0]
+          : "";
       let buildArgs = options.buildCommand
         ? options.buildCommand.split(" ").slice(1)
         : buildCommand
-        ? buildCommand.split(" ").slice(1)
-        : [];
+          ? buildCommand.split(" ").slice(1)
+          : [];
       let start = options.startCommand
         ? options.startCommand.split(" ")[0]
         : startCommand
-        ? startCommand.split(" ")[0]
-        : "";
+          ? startCommand.split(" ")[0]
+          : "";
       let startArgs = options.startCommand
         ? options.startCommand.split(" ").slice(1)
         : startCommand
-        ? startCommand.split(" ").slice(1)
-        : [];
+          ? startCommand.split(" ").slice(1)
+          : [];
 
       const isSettingsSet = options.install && options.build && options.start;
       const isSettingsNotSet =
@@ -193,7 +193,7 @@ const serve = async (directory: string = ".", options: IOption) => {
               installArgs.push(
                 isYarn
                   ? `--modules-folder ${modulesFolder}/node_modules`
-                  : `--prefix ${modulesFolder}`
+                  : `--prefix ${modulesFolder}`,
               );
             }
             installArgs.push("--ignore-scripts");
@@ -205,7 +205,7 @@ const serve = async (directory: string = ".", options: IOption) => {
               case "astro":
                 const astroConfig = fs.readFileSync(
                   path.resolve(folder, "astro.config.mjs"),
-                  "utf8"
+                  "utf8",
                 );
                 if (
                   astroConfig?.includes("output") &&
@@ -221,7 +221,7 @@ const serve = async (directory: string = ".", options: IOption) => {
               case "svelte":
                 const svelteConfig = fs.readFileSync(
                   path.resolve(folder, "svelte.config.js"),
-                  "utf8"
+                  "utf8",
                 );
 
                 if (svelteConfig?.includes("@sveltejs/adapter-static")) {
@@ -248,7 +248,7 @@ const serve = async (directory: string = ".", options: IOption) => {
                   port: PORT,
                   host: HOST,
                   watch: options.watch,
-                }
+                },
               );
             } else if (options.install) {
               installScript({
@@ -258,7 +258,7 @@ const serve = async (directory: string = ".", options: IOption) => {
               }).then(() => process.exit(0));
             } else if (options.build) {
               buildScript({ _build: build, buildArgs, dir: folder }).then(() =>
-                process.exit(0)
+                process.exit(0),
               );
             } else {
               startScript({
@@ -273,13 +273,13 @@ const serve = async (directory: string = ".", options: IOption) => {
                 },
               });
             }
-          }
+          },
         );
     } else if (files.includes("index.html")) {
       customServer(PORT, HOST, folder, options.open);
     } else {
       throw new Error(
-        `This folder ("${directory}") doesn't contain index.html or package.json`
+        `This folder ("${directory}") doesn't contain index.html or package.json`,
       );
     }
   } catch (err) {

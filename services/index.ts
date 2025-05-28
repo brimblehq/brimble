@@ -17,7 +17,7 @@ export const serveStack = async (
     host: string;
     isOpen?: boolean;
     watch?: boolean;
-  }
+  },
 ) => {
   await installScript({
     _install: ci.install,

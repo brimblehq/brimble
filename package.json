@@ -19,11 +19,19 @@
   "pkg": {
     "output": "builds",
     "outputPath": "./builds",
+    "options": [
+      "--no-bytecode",
+      "--public-packages",
+      "*"
+    ],
     "targets": [
       "node16-linux-x64",
       "node16-linux-arm64",
       "node16-macos-x64",
-      "node16-win-x64"
+      "node16-macos-arm64",
+      "node16-win-x64",
+      "node16-alpine-arm64",
+      "node16-alpine-x64"
     ]
   },
   "license": "MIT",
@@ -41,7 +49,6 @@
     "cross-spawn": "^7.0.3",
     "dotenv": "^16.0.0",
     "express": "^4.18.2",
-    "figlet": "^1.8.1",
     "get-port": "5.1.1",
     "glob": "^8.0.3",
     "http-proxy-middleware": "^3.0.5",
@@ -63,7 +70,6 @@
     "@types/cross-spawn": "^6.0.2",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^4.17.17",
-    "@types/figlet": "^1.7.0",
     "@types/glob": "^7.2.0",
     "@types/inquirer": "^8.2.1",
     "@types/node": "^18.11.18",

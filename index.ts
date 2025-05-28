@@ -15,7 +15,7 @@ import {
   logout,
   list,
   env,
-  mcpProxy
+  mcpProxy,
 } from "./commands";
 
 dotenv.config();
@@ -33,8 +33,8 @@ if (notifier.update) {
     chalk.yellow(
       `A newer version of Brimble CLI is available: ${latest}
   You are currently on ${pkg.version}
-  Run ${chalk.green(`yarn global add @brimble/cli`)} to update.`
-    )
+  Run ${chalk.green(`yarn global add @brimble/cli`)} to update.`,
+    ),
   );
 }
 
@@ -80,30 +80,35 @@ program
   .option("-s --silent", "silent mode")
   .action(deploy);
 
+const mcp = program
+  .command("mcp")
+  .description("🚀 MCP (Model Context Protocol) proxy commands");
 
-  const mcp = program.command("mcp").description("🚀 MCP (Model Context Protocol) proxy commands");
+mcp
+  .command("start")
+  .description("Start MCP proxy server")
+  .requiredOption(
+    "-c, --command <command>",
+    "Command to execute for MCP server",
+  )
+  .option("-p, --port <port>", "Port to run the proxy on", "3001")
+  .option("--verbose", "Enable verbose logging")
+  .option("--quiet", "Suppress non-essential output")
+  .option("--no-color", "Disable colored output")
+  .option("--mode <mode>", "Mode to run the proxy in")
+  .option("--interactive", "Interactive setup mode")
+  .action(mcpProxy);
 
-  mcp
-    .command("start")
-    .description("Start MCP proxy server")
-    .requiredOption("-c, --command <command>", "Command to execute for MCP server")
-    .option("-p, --port <port>", "Port to run the proxy on", "3001")
-    .option("--verbose", "Enable verbose logging")
-    .option("--quiet", "Suppress non-essential output")
-    .option("--no-color", "Disable colored output")
-    .option("--interactive", "Interactive setup mode")
-    .action(mcpProxy);
-  
-  mcp
-    .command("interactive")
-    .alias("i")
-    .description("Interactive MCP proxy setup wizard")
-    .action((options) => mcpProxy({ ...options, interactive: true }));
-  
-  mcp
-    .command("examples")
-    .description("Show MCP proxy usage examples")
-    .action((options) => mcpProxy({ ...options, examples: true }));
+mcp
+  .command("interactive")
+  .alias("i")
+  .description("Interactive MCP proxy setup wizard")
+  .action((options) => mcpProxy({ ...options, interactive: true }));
+
+mcp
+  .command("examples")
+  .description("Show MCP proxy usage examples")
+  .action((options) => mcpProxy({ ...options, examples: true }));
 
 program.command("logs").description("View your deploy logs").action(logs);
 

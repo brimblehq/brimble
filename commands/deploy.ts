@@ -65,8 +65,8 @@ const deploy = async (
       });
       const packageJson = require(path.resolve(folder, "package.json"));
       const framework = detectFramework(packageJson);
-      buildCommand = framework?.settings.buildCommand || "yarn build";
-      outputDirectory = framework?.settings.outputDirectory || "dist";
+      buildCommand = framework?.settings?.buildCommand || "yarn build";
+      outputDirectory = framework?.settings?.outputDirectory || "dist";
     }
 
     const oauth = user.oauth;
