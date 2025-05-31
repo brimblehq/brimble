@@ -42,7 +42,7 @@ export const customServer = (
           },
         },
       ],
-    }) as unknown as RequestHandler
+    }) as unknown as RequestHandler,
   );
   app.use("/", express.static(dir));
   app.get("*", (req, res) => {

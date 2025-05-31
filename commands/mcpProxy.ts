@@ -6,39 +6,14 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import boxen from "boxen";
 import inquirer from "inquirer";
-import { createLogger, format, transports, Logger } from "winston";
-import { createProxyMiddleware } from "http-proxy-middleware";
 import axios from "axios";
-
-enum MCPMode {
-  STDIO = "stdio",
-  SSE = "sse",
-}
-
-interface MCPMessage {
-  jsonrpc: string;
-  id?: string | number | null;
-  method?: string;
-  params?: any;
-  result?: any;
-  error?: MCPError;
-}
-
-interface MCPError {
-  code: number;
-  message: string;
-}
-
-interface MCPOptions {
-  command?: string;
-  port?: string;
-  verbose?: boolean;
-  quiet?: boolean;
-  color?: boolean;
-  interactive?: boolean;
-  examples?: boolean;
-  mode?: MCPMode;
-}
+import { MCPMessage, MCPConfig } from "../types";
+import {
+  createErrorResponse,
+  findAvailablePort,
+  parseCommand,
+} from "../helpers/mcp";
+import { logger } from "../helpers/logger";
 
 interface GlobalConfig {
   verbose: boolean;
@@ -46,9 +21,6 @@ interface GlobalConfig {
   color: boolean;
   spawnCommand?: string;
   spawnArgs?: string[];
-  hasSSE?: boolean;
-  ssePort?: number;
-  sseEndpoint?: string;
 }
 
 interface SessionStats {
@@ -68,19 +40,14 @@ const commands = [
   "initialize",
   "tools/list",
   "tools/call",
-
   "resources/list",
   "resources/read",
   "resources/subscribe",
   "resources/unsubscribe",
-
   "prompts/list",
   "prompts/get",
-
   "completion/complete",
-
   "logging/setLevel",
-
   "notifications/initialized",
   "notifications/cancelled",
   "notifications/progress",
@@ -90,55 +57,36 @@ const commands = [
   "notifications/prompt_list_changed",
   "notifications/resource_list_changed",
   "notifications/resource_updated",
-
   "ping",
 ];
-
-const logger: Logger = createLogger({
-  level: process.env.LOG_LEVEL || "info",
-  format: format.combine(
-    format.timestamp({ format: "HH:mm:ss" }),
-    format.errors({ stack: true }),
-    format.printf(({ timestamp, level, message, stack }) => {
-      const colorMap: Record<string, any> = {
-        error: chalk.red,
-        warn: chalk.yellow,
-        info: chalk.blue,
-        debug: chalk.gray,
-      };
-      const colorFn = colorMap[level] || chalk.white;
-      return `${chalk.gray(timestamp)} ${colorFn(level.toUpperCase().padEnd(5))} ${message}${stack ? "\n" + stack : ""}`;
-    }),
-  ),
-  transports: [new transports.Console()],
-});
-
-function createErrorResponse(
-  code: number,
-  message: string,
-  id: string | number | null = null,
-): MCPMessage {
-  return {
-    jsonrpc: "2.0",
-    error: {
-      code,
-      message,
-    },
-    id,
-  };
-}
 
 async function verifyApiKey(apiKey: string, ownerId: string): Promise<void> {
   if (!apiKey) {
     throw new Error("Unauthorized: x-api-key header is required");
   }
 
+  if (!ownerId) {
+    throw new Error("Unauthorized: x-owner-id header is required");
+  }
+
   try {
+    logger.info(
+      `🔍 Verifying API key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`,
+    );
+    logger.info(`🔍 Owner ID: ${ownerId}`);
+
     await axios.post(`https://core.brimble.io/v1/api-key/validate`, {
       apiKey,
       ownerId,
     });
-  } catch (error) {
+
+    logger.info(`✅ API key validation successful`);
+  } catch (error: any) {
+    logger.error(`❌ API key validation failed: ${error.message}`);
+    if (error.response) {
+      logger.error(`Response status: ${error.response.status}`);
+      logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
+    }
     throw new Error("Invalid API key");
   }
 }
@@ -408,6 +356,7 @@ class MCPSession {
         id: this.currentMessageId++,
         method: "initialize",
         params,
+        result: undefined
       };
 
       const response = await this.sendMessage(initMessage);
@@ -441,7 +390,7 @@ class MCPSession {
       jsonrpc: "2.0",
       id: this.currentMessageId++,
       method,
-      params,
+      params
     };
 
     return await this.sendMessage(message);
@@ -469,119 +418,20 @@ class MCPSession {
   }
 }
 
-async function detectSSECapabilities(
-  command: string,
-  args: string[],
-  options: MCPOptions,
-): Promise<{ hasSSE: boolean; port?: number; endpoint?: string }> {
-  return new Promise((resolve) => {
-    logger.info(`🔍 Checking if MCP server has SSE capabilities...`);
-
-    const tempProcess = spawn(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: process.env,
-    });
-
-    let hasDetectedSSE = false;
-    let ssePort: number | undefined;
-    let sseEndpoint: string | undefined;
-
-    const timeout = setTimeout(() => {
-      if (!hasDetectedSSE) {
-        tempProcess.kill();
-        resolve({ hasSSE: false });
-      }
-    }, 5000);
-
-    const checkOutput = (data: Buffer, source: "stdout" | "stderr") => {
-      const output = data.toString();
-
-      const ssePatterns = [
-        /server.*running.*(?:on|at).*(?:port\s*)?(\d+)/i,
-        /listening.*(?:on|at).*(?:port\s*)?(\d+)/i,
-        /sse.*server.*(?:port\s*)?(\d+)/i,
-        /http.*server.*(?:port\s*)?(\d+)/i,
-        /server.*started.*(?:port\s*)?(\d+)/i,
-      ];
-
-      const endpointPatterns = [
-        /endpoint.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
-        /path.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
-        /route.*['"](\/[^'"]*mcp[^'"]*)['"]/i,
-        /endpoint.*['"](\/[^'"]*sse[^'"]*)['"]/i,
-        /path.*['"](\/[^'"]*sse[^'"]*)['"]/i,
-        /route.*['"](\/[^'"]*sse[^'"]*)['"]/i,
-      ];
-
-      for (const pattern of ssePatterns) {
-        const match = output.match(pattern);
-        if (match && match[1]) {
-          hasDetectedSSE = true;
-          ssePort = parseInt(match[1]) || Number(options.port);
-          logger.info(`✅ Detected SSE server on port ${ssePort}`);
-          break;
-        }
-      }
-
-      for (const pattern of endpointPatterns) {
-        const match = output.match(pattern);
-        if (match && match[1]) {
-          sseEndpoint = match[1];
-          logger.info(`✅ Detected SSE endpoint: ${sseEndpoint}`);
-          break;
-        }
-      }
-
-      if (hasDetectedSSE) {
-        clearTimeout(timeout);
-        tempProcess.kill();
-        resolve({
-          hasSSE: true,
-          port: ssePort,
-          endpoint: sseEndpoint || "/mcp",
-        });
-      }
-    };
-
-    tempProcess.stdout?.on("data", (data) => checkOutput(data, "stdout"));
-    tempProcess.stderr?.on("data", (data) => checkOutput(data, "stderr"));
-
-    tempProcess.on("exit", () => {
-      if (!hasDetectedSSE) {
-        clearTimeout(timeout);
-        resolve({ hasSSE: false });
-      }
-    });
-
-    tempProcess.on("error", () => {
-      clearTimeout(timeout);
-      resolve({ hasSSE: false });
-    });
-  });
-}
-
 function displayBanner(quiet: boolean): void {
   if (quiet) return;
 
   console.log(
     chalk.cyan.bold(
       "╔══════════════════════════════════════════════════════════╗\n" +
-      "║                                                          ║\n" +
-      "║                     BRIMBLE MCP PROXY                    ║\n" +
-      "║                                                          ║\n" +
-      "╚══════════════════════════════════════════════════════════╝"
-    )
+        "║                                                          ║\n" +
+        "║                     BRIMBLE MCP PROXY                    ║\n" +
+        "║                                                          ║\n" +
+        "╚══════════════════════════════════════════════════════════╝",
+    ),
   );
 
-  console.log(chalk.gray("  Server-Sent Events Proxy for MCP Servers\n"));
-}
-
-function parseCommand(commandStr: string): { command: string; args: string[] } {
-  const parts = commandStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
-  const command = parts[0]?.replace(/['"]/g, "") || "";
-  const args = parts.slice(1).map((arg) => arg.replace(/['"]/g, ""));
-
-  return { command, args };
+  console.log(chalk.gray("  MCP Proxy Server\n"));
 }
 
 function displayServerInfo(
@@ -594,7 +444,7 @@ function displayServerInfo(
       `${chalk.blue("Port:")} ${chalk.yellow(port)}\n` +
       `${chalk.blue("Command:")} ${chalk.cyan(command)} ${chalk.gray(args.join(" "))}\n\n` +
       `${chalk.blue("Endpoints:")}\n` +
-      `  📡 MCP: ${chalk.underline(`http://localhost:${port}/mcp`)}\n` +
+      `  📡 Host: ${chalk.underline(`http://localhost:${port}`)}\n` +
       `  🏥 Health: ${chalk.underline(`http://localhost:${port}/health`)}\n` +
       `${chalk.blue("Required Header:")} ${chalk.yellow("x-api-key")}\n` +
       `${chalk.gray("Press Ctrl+C to stop")}`,
@@ -616,20 +466,10 @@ function showExamples(): void {
       `${chalk.blue.bold("Usage Examples")}` +
         `\n\n${chalk.yellow("Start MCP proxy:")}` +
         `\n  brimble mcp start --command \"node ./dist/index.js\"` +
-        `\n\n${chalk.yellow("Stripe MCP Server:")}` +
-        `\n  brimble mcp start --command \"node stripe-mcp/dist/index.js --tools=all --api-key=sk_test_...\"` +
-        `\n\n${chalk.yellow("With custom port and verbose output:")}` +
-        `\n  brimble mcp start --command \"node ./dist/index.js\" --port 9000 --verbose` +
         `\n\n${chalk.yellow("Interactive setup:")}` +
         `\n  brimble mcp interactive` +
-        `\n\n${chalk.yellow("Docker example:")}` +
-        `\n  brimble mcp start --command \"docker run -i my-mcp-server\"` +
-        `\n\n${chalk.blue.bold("Testing endpoints:")}` +
-        `\n  curl http://localhost:3001/health` +
-        `\n  curl -X POST http://localhost:3001/mcp \\` +
-        `\n    -H \"Content-Type: application/json\" \\` +
-        `\n    -H \"x-api-key: your-api-key\" \\` +
-        `\n    -d '{"method": "tools/list", "id": 1}'`,
+        `\n\n${chalk.blue.bold("Notes:")}` +
+        `\n  • Proxy always runs on port 5000+ (auto-detected)`,
       {
         padding: 1,
         margin: 1,
@@ -694,7 +534,7 @@ async function getSession(
 
 const activeSessions = new Map<string, MCPSession>();
 
-const mcpProxy = async (options: MCPOptions): Promise<void> => {
+const mcpProxy = async (options: MCPConfig): Promise<void> => {
   if (options.examples) {
     showExamples();
     return;
@@ -711,7 +551,6 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   }
 
   let commandStr = options.command;
-  let forcedMode = options.mode;
 
   if (options.interactive || !commandStr) {
     displayBanner(globalConfig.quiet);
@@ -726,42 +565,19 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
           input.trim() ? true : "Command cannot be empty",
       },
       {
-        type: "number",
-        name: "port",
-        message: "Port to run on:",
-        default: parseInt(options.port || "3001"),
-        validate: (input: number) =>
-          input > 0 && input < 65536 ? true : "Port must be between 1-65535",
-      },
-      {
         type: "confirm",
         name: "verbose",
         message: "Enable verbose logging?",
         default: globalConfig.verbose,
-      }
+      },
+      {
+        type: "confirm",
+        name: "start",
+        message: (answers: any) =>
+          `Start server with: ${chalk.cyan(answers.command)}?`,
+        default: true,
+      },
     ];
-
-    if (!forcedMode) {
-      questions.push({
-        type: "list",
-        name: "mode",
-        message: "Choose MCP mode:",
-        choices: [
-          { name: "Auto-detect (recommended)", value: "auto" },
-          { name: "Stdio (traditional)", value: MCPMode.STDIO },
-          { name: "SSE (Server-Sent Events)", value: MCPMode.SSE }
-        ],
-        default: "auto",
-      });
-    }
-
-    questions.push({
-      type: "confirm",
-      name: "start",
-      message: (answers: any) =>
-        `Start server with: ${chalk.cyan(answers.command)}${forcedMode ? ` (mode: ${forcedMode})` : ` (mode: ${answers.mode || 'auto'})`}?`,
-      default: true,
-    });
 
     const answers = await inquirer.prompt(questions);
 
@@ -771,9 +587,7 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
     }
 
     commandStr = answers.command;
-    options.port = answers.port.toString();
     globalConfig.verbose = answers.verbose;
-    forcedMode = forcedMode || (answers.mode !== "auto" ? answers.mode : undefined);
   }
 
   if (!commandStr) {
@@ -786,366 +600,182 @@ const mcpProxy = async (options: MCPOptions): Promise<void> => {
   globalConfig.spawnCommand = command;
   globalConfig.spawnArgs = args;
 
-  let sseDetection: { hasSSE: boolean; port?: number; endpoint?: string };
-
-  if (forcedMode === MCPMode.STDIO) {
-    logger.info(`🔧 Forced to use ${chalk.yellow("stdio")} mode`);
-    sseDetection = { hasSSE: false };
-  } else if (forcedMode === MCPMode.SSE) {
-    logger.info(`🔧 Forced to use ${chalk.yellow("SSE")} mode`);
-    sseDetection = await detectSSECapabilities(command, args, options);
-    if (!sseDetection.hasSSE) {
-      logger.warn(`⚠️  SSE mode forced but no SSE capabilities detected. Using default SSE settings.`);
-      sseDetection = { 
-        hasSSE: true, 
-        port: parseInt(options.port || "3001") + 1,
-        endpoint: "/mcp" 
-      };
-    }
-  } else {
-    logger.info(`🔍 Auto-detecting MCP mode...`);
-    sseDetection = await detectSSECapabilities(command, args, options);
-  }
-
-  globalConfig.hasSSE = sseDetection.hasSSE;
-  globalConfig.ssePort = sseDetection.port;
-  globalConfig.sseEndpoint = sseDetection.endpoint;
-
-  if (globalConfig.hasSSE) {
-    logger.info(
-      `🔗 Detected SSE-enabled MCP server, will proxy to ${chalk.cyan(`http://localhost:${globalConfig.ssePort}${globalConfig.sseEndpoint}`)}`,
-    );
-  } else {
-    logger.info(`📡 Standard MCP server detected, using stdio proxy mode`);
-  }
-
-  displayBanner(globalConfig.quiet);
+  const PROXY_PORT = await findAvailablePort(5000);
+  logger.info(`📡 Standard MCP server detected, using stdio proxy mode`);
 
   const app: Express = express();
-  const PORT = parseInt(options.port || "3001");
 
   app.use(
     cors({
       origin: "*",
-      methods: ["GET", "POST", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Accept", "x-session-id", "x-api-key"],
+      methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
+      allowedHeaders: "*",
+      exposedHeaders: "*",
+      credentials: true,
     }),
   );
+
   app.use(express.json());
 
-  if (globalConfig.verbose) {
-    app.use((req: Request, res: Response, next: NextFunction) => {
-      logger.debug(
-        `${chalk.cyan(req.method)} ${chalk.gray(req.path)} from ${chalk.yellow(req.ip)}`,
-      );
-      next();
-    });
-  }
+  app.all(
+    "/mcp",
+    async (req: ExtendedRequest, res: Response, next: NextFunction) => {
+      await getSession(req, res, next, globalConfig);
+    },
+    async (req: ExtendedRequest, res: Response) => {
+      const startTime = Date.now();
 
-  const sessionMiddleware = (
-    req: ExtendedRequest,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      if (globalConfig.hasSSE) {
-        const apiKey = req.headers["x-api-key"] as string;
-        const ownerId = req.headers["x-owner-id"] as string;
-        verifyApiKey(apiKey, ownerId);
-        next();
-      } else {
-        getSession(req, res, next, globalConfig);
-      }
-    } catch (error: any) {
-      res
-        .status(401)
-        .json(
-          createErrorResponse(
-            -32000,
-            "Unauthorized: check your x-api-key header",
-          ),
+      try {
+        let response: MCPMessage;
+        const { method, params = {}, id = null } = req.body || {};
+
+        if (!method) {
+          res
+            .status(400)
+            .json(
+              createErrorResponse(-32000, "Bad Request: Missing method", id),
+            );
+          return;
+        }
+
+        logger.info(
+          `📋 Processing ${chalk.cyan(method)} ${id ? `(id: ${id})` : ""}`,
         );
-    }
-  };
 
-  if (globalConfig.hasSSE && globalConfig.ssePort && globalConfig.sseEndpoint) {
-    logger.info(`🚀 Starting SSE-enabled MCP server...`);
-
-    const mcpProcess = spawn(
-      globalConfig.spawnCommand!,
-      globalConfig.spawnArgs!,
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: process.env,
-      },
-    );
-
-    mcpProcess.stdout?.on("data", (data) => {
-      const output = data.toString().trim();
-      if (output && !globalConfig.quiet) {
-        logger.info(`📢 MCP Server: ${chalk.italic(output)}`);
-      }
-    });
-
-    mcpProcess.stderr?.on("data", (data) => {
-      const output = data.toString().trim();
-      if (output) {
-        if (output.includes("error") || output.includes("Error")) {
-          logger.warn(`🔴 MCP Server: ${chalk.red(output)}`);
-        } else if (!globalConfig.quiet) {
-          logger.info(`📢 MCP Server: ${chalk.italic(output)}`);
+        if (method === "initialize") {
+          response = await req.mcpSession!.initialize(params);
+        } else if (commands.includes(method)) {
+          response = await req.mcpSession!.callMethod(method, params);
+        } else if (method.startsWith("custom/") || method.includes("/")) {
+          response = await req.mcpSession!.callMethod(method, params);
+        } else {
+          response = {
+            jsonrpc: "2.0",
+            error: {
+              code: -32601,
+              message: `Method not found: ${method}`,
+            },
+            id,
+          };
         }
+
+        const duration = Date.now() - startTime;
+        logger.info(
+          `✅ ${chalk.cyan(method)} completed in ${chalk.yellow(duration)}ms`,
+        );
+
+        res.json({ ...response, id });
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        logger.error(`❌ Request failed in ${duration}ms: ${error.message}`);
+
+        const errorResponse = createErrorResponse(
+          -32000,
+          error.message.includes("not initialized")
+            ? "Bad Request: Server not initialized"
+            : `Internal error: ${error.message}`,
+          req.body?.id || null,
+        );
+
+        res.status(500).json(errorResponse);
       }
-    });
-
-    mcpProcess.on("exit", (code, signal) => {
-      if (code === 0) {
-        logger.info(`💥 MCP Server process exited normally (code ${code})`);
-      } else {
-        logger.error(`💥 MCP Server process exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
-      }
-      
-      logger.warn(`🛑 MCP Server died, shutting down proxy...`);
-      process.exit(code || 1);
-    });
-
-    mcpProcess.on("error", (error) => {
-      logger.error(`💥 MCP Server spawn error: ${error.message}`);
-      logger.warn(`🛑 Failed to start MCP Server, shutting down proxy...`);
-      process.exit(1);
-    });
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    const proxyMiddleware = createProxyMiddleware({
-      target: `http://localhost:${globalConfig.ssePort}`,
-      changeOrigin: true,
-      pathRewrite: {
-        "^/mcp": globalConfig.sseEndpoint,
-      },
-      on: {
-        proxyReq: (proxyReq: any, req: any) => {
-          if (globalConfig.verbose) {
-            logger.debug(`🔄 Proxying ${req.method} ${req.url} to MCP server`);
-          }
-        },
-        error: (err: any, req: any, res: any) => {
-          logger.error(`Proxy error: ${err.message}`);
-          if (!res.headersSent) {
-            res.status(502).json({
-              jsonrpc: "2.0",
-              error: {
-                code: -32000,
-                message: `Proxy error: ${err.message}`,
-              },
-              id: null,
-            });
-          }
-        },
-      },
-    });
-
-    app.all("/mcp", sessionMiddleware, proxyMiddleware);
-
-    const cleanup = (): void => {
-      console.log(chalk.yellow("\n🧹 Stopping MCP server..."));
-      mcpProcess.kill();
-      process.exit(0);
-    };
-
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-  } else {
-    app.all(
-      "/mcp",
-      sessionMiddleware,
-      async (req: ExtendedRequest, res: Response) => {
-        const startTime = Date.now();
-
-        try {
-          let response: MCPMessage;
-          const { method, params = {}, id = null } = req.body || {};
-
-          if (!method) {
-            res
-              .status(400)
-              .json(
-                createErrorResponse(-32000, "Bad Request: Missing method", id),
-              );
-            return;
-          }
-
-          logger.info(
-            `📋 Processing ${chalk.cyan(method)} ${id ? `(id: ${id})` : ""}`,
-          );
-
-          if (method === "initialize") {
-            response = await req.mcpSession!.initialize(params);
-          } else if (commands.includes(method)) {
-            response = await req.mcpSession!.callMethod(method, params);
-          } else if (method.startsWith("custom/") || method.includes("/")) {
-            response = await req.mcpSession!.callMethod(method, params);
-          } else {
-            response = {
-              jsonrpc: "2.0",
-              error: {
-                code: -32601,
-                message: `Method not found: ${method}`,
-              },
-              id,
-            };
-          }
-
-          const duration = Date.now() - startTime;
-          logger.info(
-            `✅ ${chalk.cyan(method)} completed in ${chalk.yellow(duration)}ms`,
-          );
-
-          const acceptHeader = req.headers.accept || "";
-
-          if (acceptHeader.includes("text/event-stream")) {
-            res.writeHead(200, {
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              Connection: "keep-alive",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              "Access-Control-Allow-Methods": "*",
-            });
-
-            res.write("event: message\n");
-            res.write(`data: ${JSON.stringify({ ...response, id })}\n\n`);
-            res.end();
-          } else {
-            res.json({ ...response, id });
-          }
-        } catch (error: any) {
-          const duration = Date.now() - startTime;
-          logger.error(`❌ Request failed in ${duration}ms: ${error.message}`);
-
-          const errorResponse = createErrorResponse(
-            -32000,
-            error.message.includes("not initialized")
-              ? "Bad Request: Server not initialized"
-              : `Internal error: ${error.message}`,
-            req.body?.id || null,
-          );
-
-          res.status(500).json(errorResponse);
-        }
-      },
-    );
-  }
+    },
+  );
 
   app.get("/health", (req: Request, res: Response) => {
     const apiKey = req.headers["x-api-key"];
+    const sessions: any[] = [];
 
-    if (globalConfig.hasSSE) {
-      res.json({
-        status: "ok",
-        mode: "sse",
-        ssePort: globalConfig.ssePort,
-        sseEndpoint: globalConfig.sseEndpoint,
-        timestamp: new Date().toISOString(),
-        authenticated: !!apiKey,
-        version: "2.0.0",
+    activeSessions.forEach((session, key) => {
+      sessions.push({
+        key: key.split("-")[0],
+        ...session.getStats(),
       });
-    } else {
-      const sessions: any[] = [];
-
-      activeSessions.forEach((session, key) => {
-        sessions.push({
-          key: key.split("-")[0],
-          ...session.getStats(),
-        });
-      });
-
-      res.json({
-        status: "ok",
-        mode: "stdio",
-        activeSessions: activeSessions.size,
-        sessions,
-        timestamp: new Date().toISOString(),
-        authenticated: !!apiKey,
-        version: "2.0.0",
-      });
-    }
-  });
-
-  if (!globalConfig.hasSSE) {
-    app.post(
-      "/debug/mcp",
-      sessionMiddleware,
-      async (req: ExtendedRequest, res: Response) => {
-        try {
-          const { method, params = {} } = req.body;
-          const response = await req.mcpSession!.callMethod(method, params);
-          res.json(response);
-        } catch (error: any) {
-          res.status(500).json({
-            error: error.message,
-            timestamp: new Date().toISOString(),
-          });
-        }
-      },
-    );
-
-    app.get("/sessions", (req: Request, res: Response) => {
-      const sessions: any[] = [];
-      activeSessions.forEach((session, key) => {
-        sessions.push({
-          key,
-          ...session.getStats(),
-        });
-      });
-      res.json({ sessions });
     });
 
-    const cleanup = (): void => {
-      console.log(chalk.yellow("\n🧹 Cleaning up sessions..."));
-      const spinner: Ora = ora("Stopping sessions").start();
+    res.json({
+      status: "ok",
+      mode: "stdio",
+      activeSessions: activeSessions.size,
+      sessions,
+      timestamp: new Date().toISOString(),
+      authenticated: !!apiKey,
+      version: "2.0.0",
+    });
+  });
 
-      let cleaned = 0;
-      activeSessions.forEach((session) => {
-        session.cleanup();
-        cleaned++;
+  app.post(
+    "/debug/mcp",
+    async (req: ExtendedRequest, res: Response, next: NextFunction) => {
+      await getSession(req, res, next, globalConfig);
+    },
+    async (req: ExtendedRequest, res: Response) => {
+      try {
+        const { method, params = {} } = req.body;
+        const response = await req.mcpSession!.callMethod(method, params);
+        res.json(response);
+      } catch (error: any) {
+        res.status(500).json({
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    },
+  );
+
+  app.get("/sessions", (req: Request, res: Response) => {
+    const sessions: any[] = [];
+    activeSessions.forEach((session, key) => {
+      sessions.push({
+        key,
+        ...session.getStats(),
       });
+    });
+    res.json({ sessions });
+  });
 
-      spinner.succeed(`Cleaned up ${cleaned} sessions`);
-      console.log(chalk.green("👋 Goodbye!"));
-      process.exit(0);
-    };
+  const cleanup = (): void => {
+    console.log(chalk.yellow("\n🧹 Cleaning up sessions..."));
+    const spinner: Ora = ora("Stopping sessions").start();
 
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-  }
+    let cleaned = 0;
+    activeSessions.forEach((session) => {
+      session.cleanup();
+      cleaned++;
+    });
+
+    spinner.succeed(`Cleaned up ${cleaned} sessions`);
+    console.log(chalk.green("👋 Goodbye!"));
+    process.exit(0);
+  };
+
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
 
   app.options("*", (req: Request, res: Response) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    const origin = req.headers.origin || "*";
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, OPTIONS, PUT, DELETE, PATCH",
+    );
     res.header(
       "Access-Control-Allow-Headers",
-      "Content-Type, Accept, x-session-id, x-api-key, x-owner-id",
+      "Content-Type, Accept, x-session-id, x-api-key, x-owner-id, Cache-Control, Pragma",
     );
+    res.header("Access-Control-Allow-Credentials", "true");
     res.sendStatus(200);
   });
 
-  const server = app.listen(PORT, () => {
-    displayServerInfo(PORT, command, args);
-
-    if (globalConfig.hasSSE) {
-      console.log(
-        chalk.blue(`🔗 Mode: SSE (forwarding to port ${globalConfig.ssePort})`),
-      );
-    } else {
-      console.log(chalk.blue("📡 Mode: Stdio"));
-    }
+  const server = app.listen(PROXY_PORT, () => {
+    displayServerInfo(PROXY_PORT, command, args);
+    console.log(chalk.blue("📡 Mode: Stdio"));
   });
 
   server.on("error", (error: any) => {
     if (error.code === "EADDRINUSE") {
       logger.error(
-        `Port ${PORT} is already in use. Try a different port with --port`,
+        `Port ${PROXY_PORT} is already in use. Try a different port with --port`,
       );
     } else {
       logger.error(`Server error: ${error.message}`);
