@@ -515,7 +515,7 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
   }
 
   let commandStr = options.command;
-  let port = typeof options.port === 'number' ? options.port : 5000;
+  let port = Number(options.port);
 
   if (options.interactive || !commandStr) {
     displayBanner(globalConfig.quiet);

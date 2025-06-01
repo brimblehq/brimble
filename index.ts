@@ -91,7 +91,7 @@ mcp
     "-c, --command <command>",
     "Command to execute for MCP server",
   )
-  .option("-p, --port <port>", "Port to run the proxy on", "3001")
+  .option("-p, --port <port>", "Port to run the proxy on", "5000")
   .option("--verbose", "Enable verbose logging")
   .option("--quiet", "Suppress non-essential output")
   .option("--no-color", "Disable colored output")

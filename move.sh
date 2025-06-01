@@ -8,6 +8,6 @@ mv brimble-linux-arm64 builds/
 
 mv brimble-linux-x64 builds/
 
-mv brimble-macos-x64 builds/
+mv brimble-alpine-arm64 builds/
 
-mv brimble-win-x64.exe builds/
+mv brimble-alpine-x64 builds/
