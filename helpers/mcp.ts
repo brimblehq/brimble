@@ -1,9 +1,4 @@
 import { MCPMessage } from "../types";
-import { getPort } from "get-port-please";
-
-async function findAvailablePort(startPort: number = 5000): Promise<number> {
-  return await getPort(startPort);
-}
 
 function parseCommand(commandStr: string): { command: string; args: string[] } {
   const shellOperators = ["&&", "||", "|", ">", "<", ";", "&"];
@@ -45,4 +40,4 @@ function createErrorResponse(
   };
 }
 
-export { findAvailablePort, createErrorResponse, parseCommand };
+export { createErrorResponse, parseCommand };

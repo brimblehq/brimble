@@ -6,11 +6,9 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import boxen from "boxen";
 import inquirer from "inquirer";
-import axios from "axios";
 import { MCPMessage, MCPConfig } from "../types";
 import {
   createErrorResponse,
-  findAvailablePort,
   parseCommand,
 } from "../helpers/mcp";
 import { logger } from "../helpers/logger";
@@ -59,37 +57,6 @@ const commands = [
   "notifications/resource_updated",
   "ping",
 ];
-
-async function verifyApiKey(apiKey: string, ownerId: string): Promise<void> {
-  if (!apiKey) {
-    throw new Error("Unauthorized: x-api-key header is required");
-  }
-
-  if (!ownerId) {
-    throw new Error("Unauthorized: x-owner-id header is required");
-  }
-
-  try {
-    logger.info(
-      `🔍 Verifying API key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`,
-    );
-    logger.info(`🔍 Owner ID: ${ownerId}`);
-
-    await axios.post(`https://core.brimble.io/v1/api-key/validate`, {
-      apiKey,
-      ownerId,
-    });
-
-    logger.info(`✅ API key validation successful`);
-  } catch (error: any) {
-    logger.error(`❌ API key validation failed: ${error.message}`);
-    if (error.response) {
-      logger.error(`Response status: ${error.response.status}`);
-      logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-    }
-    throw new Error("Invalid API key");
-  }
-}
 
 function getSessionKey(sessionId: string, apiKey: string): string {
   return `${sessionId}-${apiKey.slice(-8)}`;
@@ -446,7 +413,6 @@ function displayServerInfo(
       `${chalk.blue("Endpoints:")}\n` +
       `  📡 Host: ${chalk.underline(`http://localhost:${port}`)}\n` +
       `  🏥 Health: ${chalk.underline(`http://localhost:${port}/health`)}\n` +
-      `${chalk.blue("Required Header:")} ${chalk.yellow("x-api-key")}\n` +
       `${chalk.gray("Press Ctrl+C to stop")}`,
     {
       padding: 1,
@@ -486,10 +452,8 @@ async function getSession(
   globalConfig: GlobalConfig,
 ): Promise<void> {
   try {
-    const apiKey = req.headers["x-api-key"] as string;
-    const ownerId = req.headers["x-owner-id"] as string;
-
-    await verifyApiKey(apiKey, ownerId);
+    const apiKey = req.headers["x-api-key"] as string || "default";
+    const ownerId = req.headers["x-owner-id"] as string || "default";
 
     const sessionId =
       (req.headers["x-session-id"] as string) ||
@@ -525,9 +489,9 @@ async function getSession(
     next();
   } catch (error: any) {
     res
-      .status(401)
+      .status(500)
       .json(
-        createErrorResponse(-32000, `Authentication error: ${error.message}`),
+        createErrorResponse(-32000, `Session error: ${error.message}`),
       );
   }
 }
@@ -551,6 +515,7 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
   }
 
   let commandStr = options.command;
+  let port = typeof options.port === 'number' ? options.port : 5000;
 
   if (options.interactive || !commandStr) {
     displayBanner(globalConfig.quiet);
@@ -565,6 +530,19 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
           input.trim() ? true : "Command cannot be empty",
       },
       {
+        type: "input",
+        name: "port",
+        message: "Enter the port to start the server:",
+        default: port,
+        validate: (input: string) => {
+          const portNum = parseInt(input);
+          if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+            return "Port must be a number between 1 and 65535";
+          }
+          return true;
+        },
+      },
+      {
         type: "confirm",
         name: "verbose",
         message: "Enable verbose logging?",
@@ -574,7 +552,7 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
         type: "confirm",
         name: "start",
         message: (answers: any) =>
-          `Start server with: ${chalk.cyan(answers.command)}?`,
+          `Start server with: ${chalk.cyan(answers.command)} on port ${chalk.yellow(answers.port)}?`,
         default: true,
       },
     ];
@@ -587,6 +565,7 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
     }
 
     commandStr = answers.command;
+    port = parseInt(answers.port);
     globalConfig.verbose = answers.verbose;
   }
 
@@ -600,7 +579,6 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
   globalConfig.spawnCommand = command;
   globalConfig.spawnArgs = args;
 
-  const PROXY_PORT = await findAvailablePort(5000);
   logger.info(`📡 Standard MCP server detected, using stdio proxy mode`);
 
   const app: Express = express();
@@ -767,15 +745,15 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
     res.sendStatus(200);
   });
 
-  const server = app.listen(PROXY_PORT, () => {
-    displayServerInfo(PROXY_PORT, command, args);
+  const server = app.listen(port, () => {
+    displayServerInfo(port, command, args);
     console.log(chalk.blue("📡 Mode: Stdio"));
   });
 
   server.on("error", (error: any) => {
     if (error.code === "EADDRINUSE") {
       logger.error(
-        `Port ${PROXY_PORT} is already in use. Try a different port with --port`,
+        `Port ${port} is already in use. Try a different port with --port`,
       );
     } else {
       logger.error(`Server error: ${error.message}`);
