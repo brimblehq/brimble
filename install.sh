@@ -45,10 +45,10 @@ if [ "${1:-}" = "--all" ]; then
     download_binary "${BRIMBLE_LINUX}" "${INSTALL_DIR}/brimble-linux-x64" "Linux x64"
     
     download_binary "${BRIMBLE_LINUX_ARM64}" "${INSTALL_DIR}/brimble-linux-arm64" "Linux ARM64"
-    
-    download_binary "${BRIMBLE_MACOS}" "${INSTALL_DIR}/brimble-macos-x64" "macOS"
-    
-    download_binary "${BRIMBLE_WINDOWS}" "${INSTALL_DIR}/brimble-win-x64.exe" "Windows"
+
+    download_binary "${BRIMBLE_ALPINE}" "${INSTALL_DIR}/brimble-alpine-x64" "Alpine x64"
+
+    download_binary "${BRIMBLE_ALPINE_ARM64}" "${INSTALL_DIR}/brimble-alpine-arm64" "Alpine ARM64"
     
     case "${OS}" in
         Linux)

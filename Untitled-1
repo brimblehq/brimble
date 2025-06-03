@@ -1,0 +1,7 @@
+docker run -d -i \
+  --name stripe-debug \
+  --user root \
+  -v /tmp/brimble/cli-alpine-arm64:/app/brimble \
+  --entrypoint /bin/sh \
+  mcp/stripe \
+  -c "/app/brimble -v" 

@@ -277,7 +277,7 @@
     soft-delete-plugin-mongoose "^1.0.17"
     uuid "^8.3.2"
 
-"@brimble/utils@^1.5.23", "@brimble/utils@^1.5.35":
+"@brimble/utils@^1.5.23":
   version "1.5.59"
   resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.59.tgz#2d0621b0ba19db1e0f4337e7784a781103af16e3"
   integrity sha512-afPnlws9/piLTXRuxJAHwDOqHMtFYVdtvvrBlFhAffOBCsib+KsHzEEHSVZ60p6SO0YdWfK6fZqdeZVI0Sk3YQ==
@@ -285,6 +285,18 @@
     crypto-js "^4.1.1"
     pino "^8.6.0"
     pino-pretty "^9.1.0"
+    unique-names-generator "^4.7.1"
+    winston "^3.8.2"
+
+"@brimble/utils@^1.5.60":
+  version "1.5.60"
+  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.60.tgz#b32aee80599e532ddfcd61ec79e019242ca38bc0"
+  integrity sha512-ZFq8JlHmE02cIDzgW7r8X5eqU2+wQs3X3clVHa55FqR14EJRYDn090iPn4Iq0piHFUW5lF7tydKeTcb9c1DlGg==
+  dependencies:
+    crypto-js "^4.1.1"
+    pino "^8.6.0"
+    pino-pretty "^9.1.0"
+    strip-ansi "^7.1.0"
     unique-names-generator "^4.7.1"
     winston "^3.8.2"
 

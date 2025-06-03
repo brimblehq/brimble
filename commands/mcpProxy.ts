@@ -168,17 +168,13 @@ class MCPSession {
             );
           }
         } else {
-          if (line.includes("✅ Stripe MCP Server running on stdio")) {
-            if (this.globalConfig.verbose) {
-              logger.info(`📢 Server ready: ${chalk.green(line)}`);
-            }
-          } else if (
+          if (
             line.includes("🚨") ||
             line.toLowerCase().includes("error")
           ) {
-            logger.warn(`🔴 MCP Server Error: ${chalk.red(line)}`);
+            logger.warn(`MCP Server Error: ${line}`);
           } else if (this.globalConfig.verbose) {
-            logger.info(`📢 Server (${source}): ${chalk.italic(line)}`);
+            logger.info(`Server (${source}): ${line}`);
           }
         }
       }

@@ -34,7 +34,7 @@
   "license": "MIT",
   "dependencies": {
     "@brimble/models": "^1.7.9",
-    "@brimble/utils": "^1.5.35",
+    "@brimble/utils": "^1.5.60",
     "axios": "^0.27.2",
     "better-opn": "^3.0.1",
     "chalk": "4.1.2",
