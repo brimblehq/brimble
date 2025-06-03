@@ -172,7 +172,7 @@ class MCPSession {
             line.includes("🚨") ||
             line.toLowerCase().includes("error")
           ) {
-            logger.warn(`MCP Server Error: ${line}`);
+            logger.warn(`Error: ${line}`);
           } else if (this.globalConfig.verbose) {
             logger.info(`Server (${source}): ${line}`);
           }
