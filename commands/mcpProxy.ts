@@ -195,6 +195,12 @@ class MCPSession {
     this.process.on(
       "exit",
       (code: number | null, signal: NodeJS.Signals | null) => {
+        if (this.stdoutBuffer) {
+          logger.error(`====> Last stdout output:\n${this.stdoutBuffer}`);
+        }
+        if (this.stderrBuffer) {
+          logger.error(`====> Last stderr output:\n${this.stderrBuffer}`);
+        }
         const uptime = ((Date.now() - this.startTime) / 1000).toFixed(1);
         if (code === 0) {
           logger.info(
@@ -213,6 +219,7 @@ class MCPSession {
 
     this.process.on("error", (error: Error) => {
       logger.error(`Process spawn failed: ${error.message}`);
+      logger.error(`Process error details: ${error.stack}`);
       throw new Error(`Process spawn failed: ${error.message}`);
     });
   }
