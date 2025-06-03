@@ -288,15 +288,14 @@
     unique-names-generator "^4.7.1"
     winston "^3.8.2"
 
-"@brimble/utils@^1.5.60":
-  version "1.5.60"
-  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.60.tgz#b32aee80599e532ddfcd61ec79e019242ca38bc0"
-  integrity sha512-ZFq8JlHmE02cIDzgW7r8X5eqU2+wQs3X3clVHa55FqR14EJRYDn090iPn4Iq0piHFUW5lF7tydKeTcb9c1DlGg==
+"@brimble/utils@^1.5.61":
+  version "1.5.61"
+  resolved "https://registry.yarnpkg.com/@brimble/utils/-/utils-1.5.61.tgz#0b5376ebecb05f1c451ff6392798a52a3fa8469d"
+  integrity sha512-G8wGNB4ugCxksR6r+zgUwVPLEJ9LwAkW4x/bpYG/upr63wZwCR26VNqXszkUjH99Y7Mjn5C9JYYI7u1C5BKyMw==
   dependencies:
     crypto-js "^4.1.1"
     pino "^8.6.0"
     pino-pretty "^9.1.0"
-    strip-ansi "^7.1.0"
     unique-names-generator "^4.7.1"
     winston "^3.8.2"
 
