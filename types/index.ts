@@ -1,3 +1,5 @@
+import { MCPSession } from "../commands/mcp/session";
+import { Request } from "express";
 export type IOption = {
   port?: number;
   host?: string;
@@ -34,8 +36,29 @@ export type MCPConfig = {
   command: any;
   mode: any;
   interactive: boolean;
-  port:  string;
+  port: string;
   host?: string;
   open?: boolean;
 };
 
+
+export type GlobalConfig = {
+  verbose: boolean;
+  quiet: boolean;
+  color: boolean;
+  spawnCommand?: string;
+  spawnArgs?: string[];
+}
+
+export type SessionStats = {
+  id: string;
+  pid?: number;
+  uptime: string;
+  messages: number;
+  initialized: boolean;
+  alive: boolean;
+}
+
+export interface ExtendedRequest extends Request {
+  mcpSession?: MCPSession;
+}
