@@ -19,23 +19,35 @@ jobs:
             git config --global user.name "Muritala David"
       - restore_cache:
           keys:
-            - v1-npm-deps-{{ checksum "package-lock.json" }}
+            - v1-yarn-deps-{{ checksum "yarn.lock" }}
+            - v1-yarn-deps-
       - run:
           name: Install dependencies
-          command: npm install
+          command: yarn install --frozen-lockfile
       - save_cache:
-          key: v1-npm-deps-{{ checksum "package-lock.json" }}
+          key: v1-yarn-deps-{{ checksum "yarn.lock" }}
           paths:
             - node_modules
+            - ~/.cache/yarn
       - run:
           name: Install pkg globally
-          command: npm i -g pkg
+          command: yarn global add pkg
       - run:
           name: Build cli
-          command: npm ci && npm run build
+          command: yarn install --frozen-lockfile && yarn build
       - run:
           name: Build for target platforms
-          command: npm run pre:release
+          command: yarn pre:release
+      - run:
+          name: Setup GitHub CLI
+          command: |
+            if [[ $CIRCLE_TAG == v* ]]; then
+              sudo apt-get update && sudo apt-get install -y curl
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+              sudo apt update && sudo apt install gh -y
+              gh auth login --with-token <<< "$GH_TOKEN"
+            fi
       - run:
           name: Create GitHub release
           command: |
