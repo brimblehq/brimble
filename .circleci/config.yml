@@ -1,0 +1,61 @@
+version: 2.1
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:16.20.2
+    environment:
+      PKG_OUTPUT: builds
+
+jobs:
+  build_and_release:
+    executor: node-executor
+    steps:
+      - checkout
+      - run:
+          name: Set up Git
+          command: |
+            git config --global user.email "dave@brimble.app"
+            git config --global user.name "Muritala David"
+      - restore_cache:
+          keys:
+            - v1-npm-deps-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: v1-npm-deps-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run:
+          name: Install pkg globally
+          command: npm i -g pkg
+      - run:
+          name: Build cli
+          command: npm ci && npm run build
+      - run:
+          name: Build for target platforms
+          command: npm run pre:release
+      - run:
+          name: Create GitHub release
+          command: |
+            if [[ $CIRCLE_TAG == v* ]]; then
+              gh release create $CIRCLE_TAG \
+                --title "Release $CIRCLE_SHA1" \
+                --notes "Build artifacts: macos, linux & windows" \
+                builds/*
+            fi
+      - run:
+          name: Final clean up
+          command: rm -rf builds
+
+workflows:
+  version: 2
+  build_and_release_workflow:
+    jobs:
+      - build_and_release:
+          filters:
+            branches:
+              ignore: main
+            tags:
+              only: /^v.*/
