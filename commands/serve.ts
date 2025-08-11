@@ -9,39 +9,68 @@ import { FrameworkConfigurationAdapter } from "../services/framework-configurati
 import { ProjectCommandResolver } from "../services/project-command-resolver";
 import { ProjectExecutionOrchestrator } from "../services/project-execution-orchestrator";
 import { StaticFileServer } from "../services/static-file-server";
+import { buildScript } from "../services/build";
+import { CommandParser } from "../helpers/command-parser";
 import { DetectFrameworkResponse, ProjectServerConfig } from "../types/server-config";
 import axios from "axios";
-import { IFramework } from "@brimble/models";
+import { FrameworkApplicationType, IFramework } from "@brimble/models";
 
 export const serveProject = async (targetDirectory: string = ".", options: IOption) => {
   try {
-    const { folder: validatedProjectDirectory, files: projectFiles } =
-      dirValidator(targetDirectory);
+    const { folder: validatedProjectDirectory, files: projectFiles } = dirValidator(targetDirectory);
+
     const serverPort = await getPort({
       port: Number(options.port || process.env.PORT) || undefined,
     });
+
+    const frameworksShouldBuild = [FrameworkApplicationType.Spa, FrameworkApplicationType.Static];
+
+    let fileDataForDetection;
+
+    const type = projectFiles.includes("package.json") ? 'packageJson' : 'files';
+
+    if (projectFiles.includes("package.json")) {
+      const packageJsonPath = path.resolve(validatedProjectDirectory, "package.json");
+      fileDataForDetection = require(packageJsonPath);
+    } else {
+      fileDataForDetection = projectFiles;
+    }
+
+    const detectedFramework = await detectProjectFramework(fileDataForDetection, type);
+
+    if (!frameworksShouldBuild.includes(detectedFramework.type)) {
+      throw new Error("Unsupported stack by the brimble builder");
+    }
+
     const serverHost = options.host || "0.0.0.0";
 
     if (projectFiles.includes("package.json")) {
-      await handleNodeJsProject(
+      await handleProjectProcess(
         validatedProjectDirectory,
         projectFiles,
         options,
         serverPort,
-        serverHost
+        serverHost,
+        detectedFramework
       );
-    } else if (projectFiles.includes("index.html")) {
+      return;
+    }
+
+    const frameworkFiles = detectedFramework.file_detectors;
+
+    if (frameworkFiles.some(file => projectFiles.includes(file)) && detectedFramework.type === FrameworkApplicationType.Static) {
+      const serveDirectory = await buildStaticApplication(validatedProjectDirectory, detectedFramework, options);
+
       StaticFileServer.createServer({
         port: serverPort,
         host: serverHost,
-        directory: validatedProjectDirectory,
+        directory: serveDirectory,
         shouldOpenBrowser: options.open,
       });
-    } else {
-      throw new Error(
-        `This folder ("${targetDirectory}") doesn't contain index.html or package.json`
-      );
+      return;
     }
+
+    throw new Error(`Brimble is unable to serve this project, it's unsupported currently`);
   } catch (error) {
     const { message } = error as Error;
     log.error(chalk.red(`Start failed with error: ${message}`));
@@ -50,30 +79,56 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
   }
 };
 
-async function detectProjectFramework(body: Record<any, any>): Promise<IFramework> {
-  try {
-    const response = await axios.post<DetectFrameworkResponse>(
-      "https://core.brimble.io/v1/frameworks?type=packageJson",
-      body
+async function buildStaticApplication(validatedProjectDirectory: string, detectedFramework: IFramework, options: IOption): Promise<string> {
+  let serveDirectory = validatedProjectDirectory;
+
+  const hasBuildCommand = options.buildCommand || detectedFramework?.settings?.buildCommand;
+
+  if (hasBuildCommand) {
+    const { binaryName, arguments: buildArgs } = CommandParser.parseCommand(
+      options.buildCommand || detectedFramework.settings.buildCommand
     );
 
-    return response.data.data;
-  } catch (error) {
-    return detectFramework(body) as IFramework;
+    if (binaryName) {
+      await buildScript({ _build: binaryName, buildArgs, dir: validatedProjectDirectory });
+    }
+
+    const outputDir = options.outputDirectory || detectedFramework.settings.outputDirectory || "dist";
+      
+    serveDirectory = path.join(validatedProjectDirectory, outputDir);
   }
+
+  return serveDirectory;
 }
 
-async function handleNodeJsProject(
+async function detectProjectFramework(body: Record<any, any>, type: 'files' | 'packageJson'): Promise<IFramework> {
+  let framework: IFramework;
+  try {
+    const response = await axios.post<DetectFrameworkResponse>(
+      `https://core.brimble.io/v1/frameworks?type=${type}`,
+      { data: body }
+    );
+
+    framework = response.data.data;
+  } catch (error) {
+    framework = detectFramework(body) as IFramework;
+  }
+
+  if (framework.type === FrameworkApplicationType.Backend && framework.slug !== "nodejs") {
+    throw new Error("Unsupported stack by the brimble builder");
+  }
+
+  return framework;
+}
+
+async function handleProjectProcess(
   projectDirectory: string,
   projectFiles: string[],
   options: IOption,
   serverPort: number,
-  serverHost: string
+  serverHost: string,
+  detectedFramework: IFramework
 ): Promise<void> {
-  const packageJsonPath = path.resolve(projectDirectory, "package.json");
-  const packageJson = require(packageJsonPath);
-  const detectedFramework = await detectProjectFramework(packageJson);
-
   const commandResolver = new ProjectCommandResolver();
   const resolvedCommands = await commandResolver.resolveProjectCommands(
     detectedFramework?.settings,

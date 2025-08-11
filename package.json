@@ -7,7 +7,7 @@
     "brimble": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc -p . && chmod +x dist/index.js",
     "release": "git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
     "pre:release": "pkg package.json --output brimble && npm run move",
     "move": "bash ./move.sh",
