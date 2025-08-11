@@ -9,23 +9,21 @@ type IOpt = {
 
 export const installScript = ({ _install, installArgs, dir }: IOpt) => {
   return new Promise((resolve, reject) => {
-    console.log(
-      `${chalk.green(`${_install.toUpperCase()}: Installing dependencies...`)}`,
-    );
+    console.log(`${chalk.green(`${_install.toUpperCase()}: Installing dependencies...`)}`);
     const install = spawn(_install, installArgs, {
       cwd: dir,
       shell: true,
     });
 
-    install.stdout?.on("data", (data) => {
+    install.stdout?.on("data", data => {
       console.log(`${chalk.green(data.toString())}`);
     });
 
-    install.stderr?.on("data", (data) => {
+    install.stderr?.on("data", data => {
       console.log(`${chalk.red(data.toString())}`);
     });
 
-    install.on("close", (code) => {
+    install.on("close", code => {
       if (code !== 0) {
         console.error(`${chalk.red(`Install failed with code ${code}`)}`);
         reject(new Error(`Install failed with code ${code}`));
@@ -33,7 +31,7 @@ export const installScript = ({ _install, installArgs, dir }: IOpt) => {
       resolve(0);
     });
 
-    install.on("error", (err) => {
+    install.on("error", err => {
       console.log(`${chalk.red(err)}`);
       reject(err); // Reject the Promise on an error
     });

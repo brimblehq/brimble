@@ -2,9 +2,7 @@ import { MCPMessage } from "../types";
 
 function parseCommand(commandStr: string): { command: string; args: string[] } {
   const shellOperators = ["&&", "||", "|", ">", "<", ";", "&"];
-  const hasShellOperators = shellOperators.some((op) =>
-    commandStr.includes(op),
-  );
+  const hasShellOperators = shellOperators.some(op => commandStr.includes(op));
 
   const hasEnvVars = /^\s*\w+=[^\s]*\s+/.test(commandStr);
 
@@ -20,7 +18,7 @@ function parseCommand(commandStr: string): { command: string; args: string[] } {
 
   const parts = commandStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
   const command = parts[0]?.replace(/['"]/g, "") || "";
-  const args = parts.slice(1).map((arg) => arg.replace(/['"]/g, ""));
+  const args = parts.slice(1).map(arg => arg.replace(/['"]/g, ""));
 
   return { command, args };
 }
@@ -28,7 +26,7 @@ function parseCommand(commandStr: string): { command: string; args: string[] } {
 function createErrorResponse(
   code: number,
   message: string,
-  id: string | number | null = null,
+  id: string | number | null = null
 ): MCPMessage {
   return {
     jsonrpc: "2.0",

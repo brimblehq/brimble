@@ -67,9 +67,5 @@
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */,
     "resolveJsonModule": true
   },
-  "exclude": [
-    "supergateway/**/*",
-    "node_modules",
-    "dist"
-  ]
+  "exclude": ["supergateway/**/*", "node_modules", "dist"]
 }

@@ -33,8 +33,8 @@ if (notifier.update) {
     chalk.yellow(
       `A newer version of Brimble CLI is available: ${latest}
   You are currently on ${pkg.version}
-  Run ${chalk.green(`yarn global add @brimble/cli`)} to update.`,
-    ),
+  Run ${chalk.green(`yarn global add @brimble/cli`)} to update.`
+    )
   );
 }
 
@@ -80,17 +80,12 @@ program
   .option("-s --silent", "silent mode")
   .action(deploy);
 
-const mcp = program
-  .command("mcp")
-  .description("🚀 MCP (Model Context Protocol) proxy commands");
+const mcp = program.command("mcp").description("🚀 MCP (Model Context Protocol) proxy commands");
 
 mcp
   .command("start")
   .description("Start MCP proxy server")
-  .requiredOption(
-    "-c, --command <command>",
-    "Command to execute for MCP server",
-  )
+  .requiredOption("-c, --command <command>", "Command to execute for MCP server")
   .option("-p, --port <port>", "Port to run the proxy on", "5000")
   .option("--verbose", "Enable verbose logging")
   .option("--quiet", "Suppress non-essential output")
@@ -103,12 +98,12 @@ mcp
   .command("interactive")
   .alias("i")
   .description("Interactive MCP proxy setup wizard")
-  .action((options) => mcpProxy({ ...options, interactive: true }));
+  .action(options => mcpProxy({ ...options, interactive: true }));
 
 mcp
   .command("examples")
   .description("Show MCP proxy usage examples")
-  .action((options) => mcpProxy({ ...options, examples: true }));
+  .action(options => mcpProxy({ ...options, examples: true }));
 
 program.command("logs").description("View your deploy logs").action(logs);
 
@@ -119,40 +114,21 @@ domain
   .command("list [name]")
   .description("List your domains connected to your project")
   .action(domains);
-domain
-  .command("add <domain>")
-  .description("Add a custom domain to your project")
-  .action(domains);
-domain
-  .command("delete <domain>")
-  .description("Remove a custom domain")
-  .action(domains);
+domain.command("add <domain>").description("Add a custom domain to your project").action(domains);
+domain.command("delete <domain>").description("Remove a custom domain").action(domains);
 
-program
-  .command("whoami")
-  .description("View your Brimble account details")
-  .action(whoami);
+program.command("whoami").description("View your Brimble account details").action(whoami);
 
-program
-  .command("logout")
-  .description("Logout from Brimble cloud")
-  .action(logout);
+program.command("logout").description("Logout from Brimble cloud").action(logout);
 
-program
-  .command("list")
-  .alias("ls")
-  .description("List your projects")
-  .action(list);
+program.command("list").alias("ls").description("List your projects").action(list);
 
 const environment = program.command("env").description("Environment commands");
 environment
   .command("list [name]")
   .description("List your environment variables connected to your project")
   .action(env);
-environment
-  .command("add [name]")
-  .description("Add an env to your project")
-  .action(env);
+environment.command("add [name]").description("Add an env to your project").action(env);
 environment
   .command("delete <environment>")
   .description("Remove an env from your project")

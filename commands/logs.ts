@@ -1,13 +1,7 @@
 import { log } from "@brimble/utils";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  FEEDBACK_MESSAGE,
-  isLoggedIn,
-  projectConfig,
-  setupAxios,
-  socket,
-} from "../helpers";
+import { FEEDBACK_MESSAGE, isLoggedIn, projectConfig, setupAxios, socket } from "../helpers";
 
 const deployLogs = async () => {
   const user = isLoggedIn();
@@ -31,25 +25,20 @@ const deployLogs = async () => {
   setupAxios(user.token)
     .get(`/logs?id=${id}`)
     .then(() => {
-      socket.on(
-        `${id}-logs`,
-        ({ message, error }: { message: string; error: boolean }) => {
-          if (error) {
-            spinner.fail(message);
-            log.info(chalk.greenBright(FEEDBACK_MESSAGE));
-            process.exit(1);
-          } else {
-            spinner.stop();
-            log.info(message);
-          }
-        },
-      );
+      socket.on(`${id}-logs`, ({ message, error }: { message: string; error: boolean }) => {
+        if (error) {
+          spinner.fail(message);
+          log.info(chalk.greenBright(FEEDBACK_MESSAGE));
+          process.exit(1);
+        } else {
+          spinner.stop();
+          log.info(message);
+        }
+      });
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.response) {
-        spinner.fail(
-          chalk.red(`Error viewing log 😭\n${err.response.data.msg}`),
-        );
+        spinner.fail(chalk.red(`Error viewing log 😭\n${err.response.data.msg}`));
       } else if (err.request) {
         spinner.fail(chalk.red(`Make sure you are connected to the internet`));
       } else {

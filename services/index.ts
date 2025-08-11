@@ -1,5 +1,6 @@
-import { startScript } from "./start";
+import { startProjectDevelopmentServer } from "./start";
 import { installScript } from "./install";
+import { ProjectStartConfiguration } from "../types/start-script.types";
 
 export const serveStack = async (
   dir: string,
@@ -17,7 +18,7 @@ export const serveStack = async (
     host: string;
     isOpen?: boolean;
     watch?: boolean;
-  },
+  }
 ) => {
   await installScript({
     _install: ci.install,
@@ -25,14 +26,12 @@ export const serveStack = async (
     dir,
   });
 
-  startScript({
-    ci: {
-      start: ci.start,
-      startArgs: ci.startArgs,
-      build: ci.build,
-      buildArgs: ci.buildArgs,
-    },
-    server,
-    dir,
-  });
+  const projectConfig: ProjectStartConfiguration = {
+    startCommand: ci.start,
+    startArguments: ci.startArgs,
+    buildCommand: ci.build,
+    buildArguments: ci.buildArgs,
+  };
+
+  startProjectDevelopmentServer(dir, projectConfig, server);
 };

@@ -13,10 +13,8 @@ dotenv.config();
 
 export const API_URL = "https://core.brimble.io";
 export const FEEDBACK_MESSAGE = `Got a bug or a suggestion? Please report it on ${chalk.bold(
-  "https://bit.ly/3cE7iZu",
-)} or create an issue on GitHub: ${chalk.bold(
-  "https://github.com/brimblehq/brimble/issues",
-)}`;
+  "https://bit.ly/3cE7iZu"
+)} or create an issue on GitHub: ${chalk.bold("https://github.com/brimblehq/brimble/issues")}`;
 
 // check if file is a directory and return all files in it with previous directory
 export const getFiles = (file: string, previous: string = "") => {
@@ -41,9 +39,7 @@ export const dirValidator = (directory: string) => {
 
   // TODO: check if the folder contains index.html or package.json
   if (!files.includes("index.html") && !files.includes("package.json")) {
-    throw new Error(
-      `This folder ("${directory}") doesn't contain index.html or package.json`,
-    );
+    throw new Error(`This folder ("${directory}") doesn't contain index.html or package.json`);
   }
 
   return { folder, files };
@@ -127,7 +123,7 @@ export const projectConfig = async () => {
     { project: {} },
     {
       configPath: path.join(process.cwd(), "brimble.json"),
-    },
+    }
   );
 
   const gitignore = await getGitIgnore(process.cwd());
@@ -138,11 +134,7 @@ export const projectConfig = async () => {
       fs.appendFileSync(gitignore, "\nbrimble.json");
     }
   } else {
-    fs.writeFileSync(
-      path.join(process.cwd(), ".gitignore"),
-      "brimble.json\n",
-      "utf8",
-    );
+    fs.writeFileSync(path.join(process.cwd(), ".gitignore"), "brimble.json\n", "utf8");
   }
 
   return config;

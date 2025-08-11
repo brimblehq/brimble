@@ -1,12 +1,7 @@
 import { log } from "@brimble/utils";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  FEEDBACK_MESSAGE,
-  isLoggedIn,
-  projectConfig,
-  setupAxios,
-} from "../helpers";
+import { FEEDBACK_MESSAGE, isLoggedIn, projectConfig, setupAxios } from "../helpers";
 
 const remove = async () => {
   const user = isLoggedIn();
@@ -35,19 +30,13 @@ const remove = async () => {
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));
       process.exit(0);
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.response) {
-        spinner.fail(
-          chalk.red(
-            `Error removing project from Brimble 😭\n${err.response.data.msg}`,
-          ),
-        );
+        spinner.fail(chalk.red(`Error removing project from Brimble 😭\n${err.response.data.msg}`));
       } else if (err.request) {
         spinner.fail(chalk.red(`Make sure you are connected to the internet`));
       } else {
-        spinner.fail(
-          chalk.red(`Error removing project from Brimble 😭\n${err.message}`),
-        );
+        spinner.fail(chalk.red(`Error removing project from Brimble 😭\n${err.message}`));
       }
 
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));

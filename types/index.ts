@@ -41,14 +41,13 @@ export type MCPConfig = {
   open?: boolean;
 };
 
-
 export type GlobalConfig = {
   verbose: boolean;
   quiet: boolean;
   color: boolean;
   spawnCommand?: string;
   spawnArgs?: string[];
-}
+};
 
 export type SessionStats = {
   id: string;
@@ -57,7 +56,7 @@ export type SessionStats = {
   messages: number;
   initialized: boolean;
   alive: boolean;
-}
+};
 
 export interface ExtendedRequest extends Request {
   mcpSession?: MCPSession;

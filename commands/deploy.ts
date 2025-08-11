@@ -41,7 +41,7 @@ const deploy = async (
     silent: false,
     name: "",
     projectID: "",
-  },
+  }
 ) => {
   try {
     const user = isLoggedIn();
@@ -74,10 +74,7 @@ const deploy = async (
       return false;
     });
 
-    if (
-      (!proj || !proj.id) &&
-      (!options.projectID || !config.get(options.projectID))
-    ) {
+    if ((!proj || !proj.id) && (!options.projectID || !config.get(options.projectID))) {
       const { createProject } = await inquirer.prompt([
         {
           type: "confirm",
@@ -138,13 +135,8 @@ const deploy = async (
 
                     const gitignore = await getGitIgnore(folder);
                     if (gitignore) {
-                      const branch = await git.revparse([
-                        "--abbrev-ref",
-                        "HEAD",
-                      ]);
-                      await git
-                        .add(gitignore)
-                        .commit("ci: added brimble.json to .gitignore");
+                      const branch = await git.revparse(["--abbrev-ref", "HEAD"]);
+                      await git.add(gitignore).commit("ci: added brimble.json to .gitignore");
 
                       spinner.start("Pushing to remote");
                       await git
@@ -153,18 +145,14 @@ const deploy = async (
                           spinner.stop();
                           log.warn(
                             chalk.yellow(
-                              `Your site will be available at https://${answer.domain} shortly`,
-                            ),
+                              `Your site will be available at https://${answer.domain} shortly`
+                            )
                           );
                           log.info(
-                            chalk.blue(
-                              `Run ${chalk.bold(
-                                `brimble logs`,
-                              )} to view progress`,
-                            ),
+                            chalk.blue(`Run ${chalk.bold(`brimble logs`)} to view progress`)
                           );
                         })
-                        .catch((err) => {
+                        .catch(err => {
                           spinner.fail(err.message);
                           log.warn(chalk.yellow("Run git push manually"));
                         });
@@ -172,13 +160,13 @@ const deploy = async (
                     } else {
                       log.info(
                         chalk.yellow(
-                          "No .gitignore found. You can add it manually by running `git add .gitignore` and `git commit -m 'ci: added brimble.json to .gitignore'`",
-                        ),
+                          "No .gitignore found. You can add it manually by running `git add .gitignore` and `git commit -m 'ci: added brimble.json to .gitignore'`"
+                        )
                       );
                       process.exit(0);
                     }
                   })
-                  .catch((err) => {
+                  .catch(err => {
                     if (err.response) {
                       throw new Error(err.response.data.msg);
                     } else {
@@ -187,7 +175,7 @@ const deploy = async (
                   });
               }
             })
-            .catch(async (err) => {
+            .catch(async err => {
               if (err.response) {
                 spinner.fail(err.response.data.msg);
                 const { install } = await inquirer.prompt([
@@ -199,33 +187,28 @@ const deploy = async (
                   },
                 ]);
                 if (install) {
-                  open(
-                    `https://github.com/apps/brimble-build/installations/new`,
-                  );
+                  open(`https://github.com/apps/brimble-build/installations/new`);
                   spinner.start("Awaiting installation");
-                  socket.on(
-                    `${user.id}:repos`,
-                    async ({ data: repos }: any) => {
-                      spinner.stop();
-                      socket.disconnect();
-                      const repo = await listRepos(repos, user.id);
-                      if (repo) {
-                        initProject(repo)
-                          .then(async ({ data }) => {
-                            projectConf.set("project", {
-                              id: data.projectId,
-                            });
-                          })
-                          .catch((err) => {
-                            if (err.response) {
-                              throw new Error(err.response.data.msg);
-                            } else {
-                              throw new Error(err.message);
-                            }
+                  socket.on(`${user.id}:repos`, async ({ data: repos }: any) => {
+                    spinner.stop();
+                    socket.disconnect();
+                    const repo = await listRepos(repos, user.id);
+                    if (repo) {
+                      initProject(repo)
+                        .then(async ({ data }) => {
+                          projectConf.set("project", {
+                            id: data.projectId,
                           });
-                      }
-                    },
-                  );
+                        })
+                        .catch(err => {
+                          if (err.response) {
+                            throw new Error(err.response.data.msg);
+                          } else {
+                            throw new Error(err.message);
+                          }
+                        });
+                    }
+                  });
                 } else {
                   process.exit(1);
                 }
@@ -240,11 +223,7 @@ const deploy = async (
         }
       } else {
         if (process.platform === "win32") {
-          log.warn(
-            chalk.yellow(
-              "Windows is not supported yet; please connect with Github",
-            ),
-          );
+          log.warn(chalk.yellow("Windows is not supported yet; please connect with Github"));
           process.exit(1);
         }
         initProject()
@@ -264,7 +243,7 @@ const deploy = async (
               token: user.token,
             });
           })
-          .catch((err) => {
+          .catch(err => {
             if (err.response) {
               throw new Error(err.response.data.msg);
             } else {
@@ -278,8 +257,8 @@ const deploy = async (
       } else {
         log.warn(
           chalk.yellow(
-            "Project already connected: all you have to do now is to push to git, and we'll handle the rest",
-          ),
+            "Project already connected: all you have to do now is to push to git, and we'll handle the rest"
+          )
         );
         process.exit(1);
       }
@@ -307,7 +286,7 @@ const redeploy = async (options: any) => {
       const { project } = data;
       if (project.repo) {
         throw new Error(
-          "Redeployment is not supported for projects with a repository use your version control system instead",
+          "Redeployment is not supported for projects with a repository use your version control system instead"
         );
       }
       await sendToServer({
@@ -322,7 +301,7 @@ const redeploy = async (options: any) => {
         token: options.token,
       });
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.response) {
         throw new Error(err.response.data.msg);
       } else {
@@ -388,79 +367,77 @@ const listRepos = async (repos: any[], user_id: string) => {
 };
 
 const askQuestions = async (data: any) => {
-  const { name, buildCommand, outputDirectory, domain } = await inquirer.prompt(
-    [
-      {
-        name: "name",
-        message: "Name of the project",
-        default: slugify(data.name || path.basename(data.folder), {
-          lower: true,
-        }),
-        when: !data.name,
-        validate: (input: string) => {
-          if (!input) {
-            return "Please enter a project name";
-          } else {
-            return setupAxios(data.token)
-              .get(
-                `/exists?name=${slugify(input, {
-                  lower: true,
-                })}`,
-              )
-              .then(() => {
-                return true;
-              })
-              .catch((err) => {
-                if (err.response) {
-                  return `${err.response.data.msg}`;
-                } else {
-                  return `${err.message}`;
-                }
-              });
-          }
-        },
-      },
-      {
-        name: "buildCommand",
-        message: "Build command",
-        default: data.buildCommand,
-        when: data.hasPackageJson,
-      },
-      {
-        name: "outputDirectory",
-        message: "Output directory",
-        default: data.outputDirectory,
-        when: data.hasPackageJson,
-      },
-      {
-        name: "domain",
-        message: "Domain name",
-        default: data.name
-          ? `${data.name}.brimble.app`
-          : ({ name }: { name: string }) => {
-              return name ? `${name}.brimble.app` : "";
-            },
-        when: !data.domain,
-        validate: (input: string) => {
-          if (isValidDomain(input)) {
-            return setupAxios(data.token)
-              .get(`/exists?domain=${input}`)
-              .then(() => {
-                return true;
-              })
-              .catch((err) => {
-                if (err.response) {
-                  return `${err.response.data.msg}`;
-                }
+  const { name, buildCommand, outputDirectory, domain } = await inquirer.prompt([
+    {
+      name: "name",
+      message: "Name of the project",
+      default: slugify(data.name || path.basename(data.folder), {
+        lower: true,
+      }),
+      when: !data.name,
+      validate: (input: string) => {
+        if (!input) {
+          return "Please enter a project name";
+        } else {
+          return setupAxios(data.token)
+            .get(
+              `/exists?name=${slugify(input, {
+                lower: true,
+              })}`
+            )
+            .then(() => {
+              return true;
+            })
+            .catch(err => {
+              if (err.response) {
+                return `${err.response.data.msg}`;
+              } else {
                 return `${err.message}`;
-              });
-          } else {
-            return `${input} is not a valid domain`;
-          }
-        },
+              }
+            });
+        }
       },
-    ],
-  );
+    },
+    {
+      name: "buildCommand",
+      message: "Build command",
+      default: data.buildCommand,
+      when: data.hasPackageJson,
+    },
+    {
+      name: "outputDirectory",
+      message: "Output directory",
+      default: data.outputDirectory,
+      when: data.hasPackageJson,
+    },
+    {
+      name: "domain",
+      message: "Domain name",
+      default: data.name
+        ? `${data.name}.brimble.app`
+        : ({ name }: { name: string }) => {
+            return name ? `${name}.brimble.app` : "";
+          },
+      when: !data.domain,
+      validate: (input: string) => {
+        if (isValidDomain(input)) {
+          return setupAxios(data.token)
+            .get(`/exists?domain=${input}`)
+            .then(() => {
+              return true;
+            })
+            .catch(err => {
+              if (err.response) {
+                return `${err.response.data.msg}`;
+              }
+              return `${err.message}`;
+            });
+        } else {
+          return `${input} is not a valid domain`;
+        }
+      },
+    },
+  ]);
 
   return { name, buildCommand, outputDirectory, domain };
 };

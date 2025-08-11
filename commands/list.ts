@@ -25,24 +25,20 @@ const list = () => {
           outputDirectory: string;
         }) => {
           log.info(chalk.green(`${project.name}`));
-        },
+        }
       );
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));
       process.exit(0);
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.response) {
         spinner.fail(
-          chalk.red(
-            `Error fetching projects from Brimble 😭\n${err.response.data.msg}`,
-          ),
+          chalk.red(`Error fetching projects from Brimble 😭\n${err.response.data.msg}`)
         );
       } else if (err.request) {
         spinner.fail(chalk.red(`Make sure you are connected to the internet`));
       } else {
-        spinner.fail(
-          chalk.red(`Error fetching projects from Brimble 😭\n${err.message}`),
-        );
+        spinner.fail(chalk.red(`Error fetching projects from Brimble 😭\n${err.message}`));
       }
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));
       process.exit(1);

@@ -1,10 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from "express";
-import { spawn, ChildProcess } from "child_process";
 import cors from "cors";
-import { v4 as uuidv4 } from "uuid";
 import chalk from "chalk";
-import ora, { Ora } from "ora";
-import { MCPMessage, MCPConfig, GlobalConfig, ExtendedRequest, SessionStats } from "../types";
+import { MCPConfig, GlobalConfig, ExtendedRequest } from "../types";
 import { createErrorResponse, parseCommand } from "../helpers/mcp";
 import { logger } from "../helpers/logger";
 import { showExamples, displayBanner, promptForConfig, displayServerInfo } from "./mcp/ui";
@@ -17,44 +14,38 @@ async function getSession(
   req: ExtendedRequest,
   res: Response,
   next: NextFunction,
-  globalConfig: GlobalConfig,
+  globalConfig: GlobalConfig
 ): Promise<void> {
   try {
     const apiKey = (req.headers["x-api-key"] as string) || "default";
-    const sessionId = (req.headers["x-session-id"] as string) ||
-      (req.query.session as string) ||
-      "default";
+    const sessionId =
+      (req.headers["x-session-id"] as string) || (req.query.session as string) || "default";
     const sessionKey = getSessionKey(sessionId, apiKey);
 
     if (!activeSessions.has(sessionKey)) {
       try {
         const session = new MCPSession({}, globalConfig);
         if (globalConfig.spawnCommand && globalConfig.spawnArgs) {
-          session.startMCPProcess(
-            globalConfig.spawnCommand,
-            globalConfig.spawnArgs,
-          );
+          session.startMCPProcess(globalConfig.spawnCommand, globalConfig.spawnArgs);
         }
         activeSessions.set(sessionKey, session);
       } catch (error: any) {
         logger.error(`Failed to create session: ${error.message}`);
-        res.status(500).json(
-          createErrorResponse(-32000, `Failed to create session: ${error.message}`),
-        );
+        res
+          .status(500)
+          .json(createErrorResponse(-32000, `Failed to create session: ${error.message}`));
         return;
       }
     }
 
     const session = activeSessions.get(sessionKey);
 
-    if(session) {
+    if (session) {
       req.mcpSession = session;
     }
     next();
   } catch (error: any) {
-    res.status(500).json(
-      createErrorResponse(-32000, `Session error: ${error.message}`),
-    );
+    res.status(500).json(createErrorResponse(-32000, `Session error: ${error.message}`));
   }
 }
 
@@ -66,7 +57,7 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
       allowedHeaders: "*",
       exposedHeaders: "*",
       credentials: true,
-    }),
+    })
   );
 
   app.use(express.json());
@@ -85,9 +76,7 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
         const { method, params = {}, id = null } = req.body || {};
 
         if (!method) {
-          res.status(400).json(
-            createErrorResponse(-32000, "Bad Request: Missing method", id),
-          );
+          res.status(400).json(createErrorResponse(-32000, "Bad Request: Missing method", id));
           return;
         }
 
@@ -98,7 +87,7 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
           res.json({
             jsonrpc: "2.0",
             id,
-            result: { success: true }
+            result: { success: true },
           });
           return;
         }
@@ -122,12 +111,12 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
           error.message.includes("not initialized")
             ? "Bad Request: Server not initialized"
             : `Internal error: ${error.message}`,
-          req.body?.id || null,
+          req.body?.id || null
         );
 
         res.status(500).json(errorResponse);
       }
-    },
+    }
   );
 
   // Health endpoint
@@ -166,7 +155,7 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
           timestamp: new Date().toISOString(),
         });
       }
-    },
+    }
   );
 
   // Sessions endpoint
@@ -182,13 +171,10 @@ function setupRoutes(app: Express, globalConfig: GlobalConfig): void {
   app.options("*", (req: Request, res: Response) => {
     const origin = req.headers.origin || "*";
     res.header("Access-Control-Allow-Origin", origin);
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, OPTIONS, PUT, DELETE, PATCH",
-    );
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, PATCH");
     res.header(
       "Access-Control-Allow-Headers",
-      "Content-Type, Accept, x-session-id, x-api-key, x-owner-id, Cache-Control, Pragma",
+      "Content-Type, Accept, x-session-id, x-api-key, x-owner-id, Cache-Control, Pragma"
     );
     res.header("Access-Control-Allow-Credentials", "true");
     res.sendStatus(200);
@@ -199,7 +185,7 @@ function setupCleanup(): void {
   const cleanup = (): void => {
     console.log(chalk.yellow("\n🧹 Cleaning up sessions..."));
     let cleaned = 0;
-    activeSessions.forEach((session) => {
+    activeSessions.forEach(session => {
       session.cleanup();
       cleaned++;
     });
@@ -234,7 +220,7 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
   if (options.interactive || !commandStr) {
     displayBanner(globalConfig.quiet);
     const answers = await promptForConfig(commandStr, port, globalConfig.verbose);
-    
+
     if (!answers.start) {
       console.log(chalk.yellow("👋 Setup cancelled"));
       return;
@@ -256,7 +242,6 @@ const mcpProxy = async (options: MCPConfig): Promise<void> => {
   globalConfig.spawnArgs = args;
 
   logger.info(`📡 Standard MCP server detected, using stdio proxy mode`);
-
 
   const defaultSession = new MCPSession({}, globalConfig);
   defaultSession.startMCPProcess(command, args);

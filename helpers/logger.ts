@@ -16,7 +16,7 @@ export const logger = createLogger({
       };
       const colorFn = colorMap[level] || chalk.white;
       return `${chalk.gray(timestamp)} ${colorFn(level.toUpperCase().padEnd(5))} ${message}${stack ? "\n" + stack : ""}`;
-    }),
+    })
   ),
   transports: [new transports.Console()],
 });

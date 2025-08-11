@@ -82,14 +82,14 @@ export class MCPSession {
       });
 
       sessionSpinner.succeed(
-        `Process started ${chalk.green("✓")} PID: ${chalk.yellow(this.process.pid)}`,
+        `Process started ${chalk.green("✓")} PID: ${chalk.yellow(this.process.pid)}`
       );
 
       this.setupProcessHandlers();
 
       if (this.globalConfig.verbose) {
         logger.info(
-          `Session ${chalk.magenta(this.id.slice(0, 8))} created for process ${this.process.pid}`,
+          `Session ${chalk.magenta(this.id.slice(0, 8))} created for process ${this.process.pid}`
         );
       }
     } catch (error: any) {
@@ -112,7 +112,7 @@ export class MCPSession {
         if (this.isValidJSON(line)) {
           try {
             const response: MCPMessage = JSON.parse(line);
-            
+
             if (response.method?.startsWith("notifications/")) {
               logger.info(`📢 Server notification: ${response.method}`);
               return lines[lines.length - 1] || "";
@@ -123,13 +123,11 @@ export class MCPSession {
 
             if (this.globalConfig.verbose) {
               logger.debug(
-                `📥 Received from ${source}: ${chalk.gray(JSON.stringify(response, null, 2))}`,
+                `📥 Received from ${source}: ${chalk.gray(JSON.stringify(response, null, 2))}`
               );
             }
           } catch (error: any) {
-            logger.error(
-              `Failed to parse MCP response from ${source}: ${error.message}`,
-            );
+            logger.error(`Failed to parse MCP response from ${source}: ${error.message}`);
           }
         } else {
           if (line.includes("🚨") || line.toLowerCase().includes("error")) {
@@ -164,12 +162,12 @@ export class MCPSession {
       if (code === 0) {
         logger.info(
           `Process ${chalk.yellow(this.process?.pid)} exited normally ` +
-            `(uptime: ${chalk.cyan(uptime)}s, messages: ${chalk.cyan(this.messageCount)})`,
+            `(uptime: ${chalk.cyan(uptime)}s, messages: ${chalk.cyan(this.messageCount)})`
         );
       } else {
         logger.error(
           `Process ${chalk.yellow(this.process?.pid)} exited with code ${chalk.red(code)} ` +
-            `${signal ? `signal ${signal} ` : ""}(uptime: ${chalk.cyan(uptime)}s)`,
+            `${signal ? `signal ${signal} ` : ""}(uptime: ${chalk.cyan(uptime)}s)`
         );
       }
       this.cleanup();
@@ -185,13 +183,17 @@ export class MCPSession {
   handleMCPResponse(response: MCPMessage): void {
     if (this.globalConfig.verbose) {
       logger.debug(
-        `🎯 Handling response: ID=${response.id} (type=${typeof response.id}), Method=${response.method}`,
+        `🎯 Handling response: ID=${response.id} (type=${typeof response.id}), Method=${response.method}`
       );
     }
 
     logger.info(`📥 Received MCP Response: ${JSON.stringify(response, null, 2)}`);
 
-    if (response.id !== undefined && response.id !== null && this.responseCallbacks.has(response.id)) {
+    if (
+      response.id !== undefined &&
+      response.id !== null &&
+      this.responseCallbacks.has(response.id)
+    ) {
       const callback = this.responseCallbacks.get(response.id);
       if (callback) {
         this.responseCallbacks.delete(response.id);
@@ -202,11 +204,9 @@ export class MCPSession {
       }
     } else {
       logger.warn(
-        `⚠️ No callback found for response ID: ${response.id} (type=${typeof response.id})`,
+        `⚠️ No callback found for response ID: ${response.id} (type=${typeof response.id})`
       );
-      logger.debug(
-        `📋 Active callbacks: ${Array.from(this.responseCallbacks.keys()).join(", ")}`,
-      );
+      logger.debug(`📋 Active callbacks: ${Array.from(this.responseCallbacks.keys()).join(", ")}`);
     }
   }
 
@@ -253,11 +253,11 @@ export class MCPSession {
       const timeoutId = setTimeout(() => {
         if (message.id && this.responseCallbacks.has(message.id)) {
           this.responseCallbacks.delete(message.id);
-          logger.error(`⏰ Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`);
+          logger.error(
+            `⏰ Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`
+          );
           reject(
-            new Error(
-              `Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`,
-            ),
+            new Error(`Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`)
           );
         }
       }, timeoutMs);
@@ -277,7 +277,7 @@ export class MCPSession {
 
   async initialize(params: any): Promise<MCPMessage> {
     logger.info(`🔄 Initializing MCP session with params: ${JSON.stringify(params, null, 2)}`);
-    
+
     if (this.initialized && this.initResponse) {
       logger.info("✅ Using cached initialization response");
       return this.initResponse;
@@ -318,7 +318,7 @@ export class MCPSession {
         const serverInfo = response.result.serverInfo;
         if (serverInfo) {
           logger.info(
-            `Connected to ${chalk.cyan(serverInfo.name)} v${chalk.yellow(serverInfo.version)}`,
+            `Connected to ${chalk.cyan(serverInfo.name)} v${chalk.yellow(serverInfo.version)}`
           );
         }
       }
@@ -338,7 +338,7 @@ export class MCPSession {
     const notification = {
       jsonrpc: "2.0",
       method,
-      params
+      params,
     };
 
     const messageStr = JSON.stringify(notification);
@@ -349,7 +349,7 @@ export class MCPSession {
 
   async callMethod(method: string, params: any = {}): Promise<MCPMessage> {
     logger.info(`🔄 Calling method: ${method} with params: ${JSON.stringify(params, null, 2)}`);
-    
+
     if (!this.initialized && method !== "initialize") {
       logger.error("❌ Server not initialized");
       throw new Error("Server not initialized");
@@ -386,4 +386,4 @@ export class MCPSession {
       alive: !!(this.process && !this.process.killed),
     };
   }
-} 
+}

@@ -10,8 +10,7 @@ const config = new Conf("brimble");
 
 const gitLogin = (auth: string) => {
   const device =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15);
+    Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
   open(`${API_URL}/auth/signin/${auth.toLowerCase()}?device=${device}`);
 
@@ -39,7 +38,7 @@ const gitLogin = (auth: string) => {
 
         socket.disconnect();
         process.exit(0);
-      },
+      }
     )
     .on("error", (err: string) => {
       spinner.fail(chalk.red(err));
@@ -133,13 +132,11 @@ const login = async ({ email, auth }: { email: string; auth: string }) => {
               log.info(chalk.greenBright(FEEDBACK_MESSAGE));
               process.exit(0);
             })
-            .catch((err) => {
+            .catch(err => {
               if (err.response) {
                 spinner.fail(chalk.red(err.response.data.message));
               } else if (err.request) {
-                spinner.fail(
-                  chalk.red(`Make sure you are connected to the internet`),
-                );
+                spinner.fail(chalk.red(`Make sure you are connected to the internet`));
               } else {
                 spinner.fail(chalk.red(err.message));
               }
@@ -148,7 +145,7 @@ const login = async ({ email, auth }: { email: string; auth: string }) => {
               process.exit(1);
             });
         })
-        .catch((err) => {
+        .catch(err => {
           if (err.response) {
             spinner.fail(chalk.red(err.response.data.message));
 
@@ -160,7 +157,7 @@ const login = async ({ email, auth }: { email: string; auth: string }) => {
                   message: "Try again?",
                 },
               ])
-              .then((answers) => {
+              .then(answers => {
                 if (answers.retry) {
                   login({ email: emailAnswer || email, auth });
                 } else {
@@ -168,9 +165,7 @@ const login = async ({ email, auth }: { email: string; auth: string }) => {
                 }
               });
           } else if (err.request) {
-            spinner.fail(
-              chalk.red(`Make sure you are connected to the internet`),
-            );
+            spinner.fail(chalk.red(`Make sure you are connected to the internet`));
             log.info(chalk.greenBright(FEEDBACK_MESSAGE));
             process.exit(1);
           } else {

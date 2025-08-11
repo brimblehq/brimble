@@ -29,9 +29,7 @@ export const sendToServer = async ({
   };
   token: string;
 }) => {
-  const uploadSpinner = ora(
-    chalk.green(`Uploading ${filesToUpload.length} files...`),
-  ).start();
+  const uploadSpinner = ora(chalk.green(`Uploading ${filesToUpload.length} files...`)).start();
 
   const upload = async (file: string) => {
     const filePath = path.resolve(folder, file);
@@ -49,24 +47,24 @@ export const sendToServer = async ({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-        },
+        }
       )
-      .catch((err) => {
+      .catch(err => {
         if (err.response) {
           log.error(
             chalk.red(
               `Error uploading ${filePath}
               ${chalk.bold(`\n${err.response.data.msg}`)}
-            `,
-            ),
+            `
+            )
           );
         } else if (err.request) {
           log.error(
             chalk.red(
               `Error uploading ${filePath}
               \n Make sure you have a good internet connection
-              `,
-            ),
+              `
+            )
           );
         } else {
           log.error(chalk.red(`Error uploading ${filePath} \n${err.message}`));
@@ -81,10 +79,8 @@ export const sendToServer = async ({
   await Promise.all(filesToUpload.map(upload)).then(() => {
     uploadSpinner.succeed(
       chalk.green(
-        `Uploaded ${filesToUpload.length} files in ${
-          new Date().getTime() - uploadTime.getTime()
-        }ms`,
-      ),
+        `Uploaded ${filesToUpload.length} files in ${new Date().getTime() - uploadTime.getTime()}ms`
+      )
     );
   });
 
@@ -106,81 +102,64 @@ export const sendToServer = async ({
         headers: {
           "Content-Type": "application/json",
         },
-      },
+      }
     )
     .then(() => {
       if (options.silent) {
         log.warn(chalk.yellow(`Silent mode enabled`));
-        log.info(
-          chalk.blue(`Use ${chalk.bold(`brimble logs ${name}`)} to view logs`),
-        );
+        log.info(chalk.blue(`Use ${chalk.bold(`brimble logs ${name}`)} to view logs`));
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       } else {
         deploySpinner.color = "yellow";
         deploySpinner.text = chalk.yellow(
           `This might take a minute, please wait until the project is ready or use ${chalk.bold(
-            `brimble logs ${name}`,
-          )} to view logs`,
+            `brimble logs ${name}`
+          )} to view logs`
         );
       }
 
-      socket.on(
-        `${projectId}-deployed`,
-        ({ url, message }: { url: string; message: string }) => {
-          deploySpinner.succeed(chalk.green(`Project deployed to Brimble 🎉`));
-          if (message) {
-            log.warn(chalk.yellow.bold(`${message}`));
-          }
-          if (options.open) {
-            log.info(chalk.green(`Opening ${url}`));
-            require("better-opn")(url);
-          } else {
-            log.info(chalk.green(`Your site is available at ${url}`));
-          }
+      socket.on(`${projectId}-deployed`, ({ url, message }: { url: string; message: string }) => {
+        deploySpinner.succeed(chalk.green(`Project deployed to Brimble 🎉`));
+        if (message) {
+          log.warn(chalk.yellow.bold(`${message}`));
+        }
+        if (options.open) {
+          log.info(chalk.green(`Opening ${url}`));
+          require("better-opn")(url);
+        } else {
+          log.info(chalk.green(`Your site is available at ${url}`));
+        }
 
-          log.info(
-            chalk.yellow(
-              `Use ${chalk.bold(`brimble cook -n ${name}`)} to deploy again`,
-            ),
-          );
+        log.info(chalk.yellow(`Use ${chalk.bold(`brimble cook -n ${name}`)} to deploy again`));
 
-          // end execution time
-          const end = new Date();
+        // end execution time
+        const end = new Date();
 
-          // calculate execution time
-          const time = msToTime(end.getTime() - deployTime.getTime());
-          log.info(chalk.green(`Time to deploy: ${chalk.bold(`${time}`)}`));
+        // calculate execution time
+        const time = msToTime(end.getTime() - deployTime.getTime());
+        log.info(chalk.green(`Time to deploy: ${chalk.bold(`${time}`)}`));
 
-          log.info(chalk.greenBright(FEEDBACK_MESSAGE));
+        log.info(chalk.greenBright(FEEDBACK_MESSAGE));
 
-          socket.disconnect();
-          process.exit(0);
-        },
-      );
+        socket.disconnect();
+        process.exit(0);
+      });
 
       socket.on(`${projectId}-error`, ({ message }: { message: string }) => {
         deploySpinner.fail(chalk.red(`Project failed to deploy 🚨`));
-        log.error(
-          chalk.red(`${message} Using ${chalk.bold(`brimble logs ${name}`)}`),
-        );
+        log.error(chalk.red(`${message} Using ${chalk.bold(`brimble logs ${name}`)}`));
         socket.disconnect();
         process.exit(1);
       });
     })
-    .catch((err) => {
+    .catch(err => {
       if (err.response) {
-        deploySpinner.fail(
-          chalk.red(`Error deploying to Brimble 😭\n${err.response.data.msg}`),
-        );
+        deploySpinner.fail(chalk.red(`Error deploying to Brimble 😭\n${err.response.data.msg}`));
       } else if (err.request) {
-        deploySpinner.fail(
-          chalk.red(`Make sure you are connected to the internet`),
-        );
+        deploySpinner.fail(chalk.red(`Make sure you are connected to the internet`));
       } else {
-        deploySpinner.fail(
-          chalk.red(`Error deploying to Brimble 😭 \n ${err.message}`),
-        );
+        deploySpinner.fail(chalk.red(`Error deploying to Brimble 😭 \n ${err.message}`));
       }
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));
       process.exit(1);

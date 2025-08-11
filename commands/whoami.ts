@@ -29,21 +29,13 @@ const whoami = () => {
 
         process.exit(0);
       })
-      .catch((err) => {
+      .catch(err => {
         if (err.response) {
-          spinner.fail(
-            chalk.red(
-              `Error getting logged in user 😭\n${err.response.data.message}`,
-            ),
-          );
+          spinner.fail(chalk.red(`Error getting logged in user 😭\n${err.response.data.message}`));
         } else if (err.request) {
-          spinner.fail(
-            chalk.red(`Make sure you are connected to the internet`),
-          );
+          spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(
-            chalk.red(`Error getting logged in user 😭\n${err.message}`),
-          );
+          spinner.fail(chalk.red(`Error getting logged in user 😭\n${err.message}`));
         }
         process.exit(1);
       });

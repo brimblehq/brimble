@@ -4,12 +4,7 @@ import { Command, Option } from "commander";
 import Table from "cli-table3";
 import inquirer from "inquirer";
 import ora from "ora";
-import {
-  FEEDBACK_MESSAGE,
-  isLoggedIn,
-  projectConfig,
-  setupAxios,
-} from "../helpers";
+import { FEEDBACK_MESSAGE, isLoggedIn, projectConfig, setupAxios } from "../helpers";
 
 const env = async (value: string, options: Option, command: Command) => {
   const user = isLoggedIn();
@@ -38,9 +33,7 @@ const env = async (value: string, options: Option, command: Command) => {
         {
           type: "input",
           name: "name",
-          message: `Enter the name of the ${
-            results.length ? "another env" : "env"
-          }`,
+          message: `Enter the name of the ${results.length ? "another env" : "env"}`,
           validate: (input: string) => (!input ? "Please enter a name" : true),
         },
       ]);
@@ -54,8 +47,7 @@ const env = async (value: string, options: Option, command: Command) => {
               type: "input",
               name: "value",
               message: `Enter the value for ${name.toUpperCase()}`,
-              validate: (input: string) =>
-                !input ? "Please enter a value" : true,
+              validate: (input: string) => (!input ? "Please enter a value" : true),
             },
           ]);
           results.push({ name, value });
@@ -68,9 +60,7 @@ const env = async (value: string, options: Option, command: Command) => {
         setupAxios(user.token)
           .post(`/env`, { projectId: id, environments: results })
           .then(() => {
-            spinner.succeed(
-              chalk.green(`${results.length} env variables added 🤓`),
-            );
+            spinner.succeed(chalk.green(`${results.length} env variables added 🤓`));
 
             const table = new Table({
               head: ["Name", "Value"],
@@ -84,23 +74,15 @@ const env = async (value: string, options: Option, command: Command) => {
             log.info(chalk.greenBright(FEEDBACK_MESSAGE));
             process.exit(0);
           })
-          .catch((err) => {
+          .catch(err => {
             if (err.response) {
               spinner.fail(
-                chalk.red(
-                  `Error adding env variables to Brimble 😭\n${err.response.data.msg}`,
-                ),
+                chalk.red(`Error adding env variables to Brimble 😭\n${err.response.data.msg}`)
               );
             } else if (err.request) {
-              spinner.fail(
-                chalk.red(`Make sure you are connected to the internet`),
-              );
+              spinner.fail(chalk.red(`Make sure you are connected to the internet`));
             } else {
-              spinner.fail(
-                chalk.red(
-                  `Error adding env variables to Brimble 😭\n${err.message}`,
-                ),
-              );
+              spinner.fail(chalk.red(`Error adding env variables to Brimble 😭\n${err.message}`));
             }
 
             log.info(chalk.greenBright(FEEDBACK_MESSAGE));
@@ -130,21 +112,13 @@ const env = async (value: string, options: Option, command: Command) => {
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       })
-      .catch((err) => {
+      .catch(err => {
         if (err.response) {
-          spinner.fail(
-            chalk.red(
-              `Error getting env variables 😭\n${err.response.data.msg}`,
-            ),
-          );
+          spinner.fail(chalk.red(`Error getting env variables 😭\n${err.response.data.msg}`));
         } else if (err.request) {
-          spinner.fail(
-            chalk.red(`Make sure you are connected to the internet`),
-          );
+          spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(
-            chalk.red(`Error getting env variables 😭\n${err.message}`),
-          );
+          spinner.fail(chalk.red(`Error getting env variables 😭\n${err.message}`));
         }
 
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
@@ -171,21 +145,13 @@ const env = async (value: string, options: Option, command: Command) => {
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       })
-      .catch((err) => {
+      .catch(err => {
         if (err.response) {
-          spinner.fail(
-            chalk.red(
-              `Error deleting env variables 😭\n${err.response.data.msg}`,
-            ),
-          );
+          spinner.fail(chalk.red(`Error deleting env variables 😭\n${err.response.data.msg}`));
         } else if (err.request) {
-          spinner.fail(
-            chalk.red(`Make sure you are connected to the internet`),
-          );
+          spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(
-            chalk.red(`Error deleting env variables 😭\n${err.message}`),
-          );
+          spinner.fail(chalk.red(`Error deleting env variables 😭\n${err.message}`));
         }
 
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));

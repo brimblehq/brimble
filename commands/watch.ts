@@ -28,7 +28,7 @@ const watch = (directory: string, options: { projectID: string }) => {
       changedFiles.push(file);
 
       ignoredFiles.forEach((file: string) => {
-        changedFiles = changedFiles.filter((f) => !f.includes(file));
+        changedFiles = changedFiles.filter(f => !f.includes(file));
       });
 
       project.changedFiles = [...new Set(changedFiles)];
@@ -40,7 +40,7 @@ const watch = (directory: string, options: { projectID: string }) => {
       changedFiles.push(file);
 
       ignoredFiles.forEach((file: string) => {
-        changedFiles = changedFiles.filter((f) => !f.includes(file));
+        changedFiles = changedFiles.filter(f => !f.includes(file));
       });
 
       project.changedFiles = [...new Set(changedFiles)];

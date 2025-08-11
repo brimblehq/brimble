@@ -11,18 +11,14 @@ export function displayBanner(quiet: boolean): void {
         "║                                                          ║\n" +
         "║                     BRIMBLE MCP PROXY                    ║\n" +
         "║                                                          ║\n" +
-        "╚══════════════════════════════════════════════════════════╝",
-    ),
+        "╚══════════════════════════════════════════════════════════╝"
+    )
   );
 
   console.log(chalk.gray("  MCP Proxy Server\n"));
 }
 
-export function displayServerInfo(
-  port: number,
-  command: string,
-  args: string[],
-): void {
+export function displayServerInfo(port: number, command: string, args: string[]): void {
   const info = boxen(
     `${chalk.green("🚀 Server Started")}\n\n` +
       `${chalk.blue("Port:")} ${chalk.yellow(port)}\n` +
@@ -35,7 +31,7 @@ export function displayServerInfo(
       padding: 1,
       margin: 1,
       borderColor: "green",
-    },
+    }
   );
 
   console.log(info);
@@ -57,15 +53,15 @@ export function showExamples(): void {
         padding: 1,
         margin: 1,
         borderColor: "blue",
-      },
-    ),
+      }
+    )
   );
 }
 
 export async function promptForConfig(
   commandStr: string | undefined,
   port: number,
-  verbose: boolean,
+  verbose: boolean
 ): Promise<{
   command: string;
   port: number;
@@ -78,8 +74,7 @@ export async function promptForConfig(
       name: "command",
       message: "Enter the command to run your MCP server:",
       default: commandStr,
-      validate: (input: string) =>
-        input.trim() ? true : "Command cannot be empty",
+      validate: (input: string) => (input.trim() ? true : "Command cannot be empty"),
     },
     {
       type: "input",
@@ -110,4 +105,4 @@ export async function promptForConfig(
   ];
 
   return await inquirer.prompt(questions);
-} 
+}
