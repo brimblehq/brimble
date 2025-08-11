@@ -38,7 +38,7 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
 
     const detectedFramework = await detectProjectFramework(fileDataForDetection, type);
 
-    if (!frameworksShouldBuild.includes(detectedFramework.type)) {
+    if (!frameworksShouldBuild.includes(detectedFramework.type) && detectedFramework.slug !== "nodejs") {
       throw new Error("Unsupported stack by the brimble builder");
     }
 
@@ -61,12 +61,17 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
     if (frameworkFiles.some(file => projectFiles.includes(file)) && detectedFramework.type === FrameworkApplicationType.Static) {
       const serveDirectory = await buildStaticApplication(validatedProjectDirectory, detectedFramework, options);
 
+      const hasStartCommand = options.startCommand || detectedFramework.settings.startCommand;
+
+      if(!hasStartCommand) process.exit(0);
+
       StaticFileServer.createServer({
         port: serverPort,
         host: serverHost,
         directory: serveDirectory,
         shouldOpenBrowser: options.open,
       });
+
       return;
     }
 
@@ -106,7 +111,8 @@ async function detectProjectFramework(body: Record<any, any>, type: 'files' | 'p
   try {
     const response = await axios.post<DetectFrameworkResponse>(
       `https://core.brimble.io/v1/frameworks?type=${type}`,
-      { data: body }
+      { data: body },
+      { timeout: 10000 }
     );
 
     framework = response.data.data;
