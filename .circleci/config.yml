@@ -41,22 +41,17 @@ jobs:
       - run:
           name: Setup GitHub CLI
           command: |
-            if [[ $CIRCLE_TAG == v* ]]; then
-              sudo apt-get update && sudo apt-get install -y curl
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-              sudo apt update && sudo apt install gh -y
-              echo "${GH_TOKEN}" | gh auth login --with-token
-            fi
+            sudo apt-get update && sudo apt-get install -y curl
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update && sudo apt install gh -y
       - run:
           name: Create GitHub release
           command: |
-            if [[ $CIRCLE_TAG == v* ]]; then
-              gh release create $CIRCLE_TAG \
-                --title "Release $CIRCLE_SHA1" \
-                --notes "Build artifacts: macos, linux & windows" \
-                builds/*
-            fi
+            gh release create $CIRCLE_TAG \
+              --title "Release $CIRCLE_SHA1" \
+              --notes "Build artifacts: macos, linux & windows" \
+              builds/*
       - run:
           name: Final clean up
           command: rm -rf builds
