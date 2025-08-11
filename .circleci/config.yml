@@ -3,7 +3,7 @@ version: 2.1
 executors:
   node-executor:
     docker:
-      - image: cimg/node:16.20.2
+      - image: cimg/node:20.11
     environment:
       PKG_OUTPUT: builds
 
