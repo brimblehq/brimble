@@ -17,19 +17,24 @@ import { FrameworkApplicationType, IFramework } from "@brimble/models";
 
 export const serveProject = async (targetDirectory: string = ".", options: IOption) => {
   try {
-    const { folder: validatedProjectDirectory, files: projectFiles } = dirValidator(targetDirectory);
+    const { folder: validatedProjectDirectory, files: projectFiles } =
+      dirValidator(targetDirectory);
 
     const serverPort = await getPort({
       port: Number(options.port || process.env.PORT) || undefined,
     });
 
-    const frameworksShouldBuild = [FrameworkApplicationType.Spa, FrameworkApplicationType.Static];
+    const frameworksShouldBuild = [
+      FrameworkApplicationType.Ssr,
+      FrameworkApplicationType.Spa,
+      FrameworkApplicationType.Static,
+    ];
 
     let fileDataForDetection;
 
-    const type = projectFiles.includes("package.json") ? 'packageJson' : 'files';
+    const type = projectFiles.includes("package.json") ? "packageJson" : "files";
 
-    if (projectFiles.includes("package.json")) {
+    if (type === "packageJson") {
       const packageJsonPath = path.resolve(validatedProjectDirectory, "package.json");
       fileDataForDetection = require(packageJsonPath);
     } else {
@@ -38,7 +43,10 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
 
     const detectedFramework = await detectProjectFramework(fileDataForDetection, type);
 
-    if (!frameworksShouldBuild.includes(detectedFramework.type) && detectedFramework.slug !== "nodejs") {
+    if (
+      !frameworksShouldBuild.includes(detectedFramework.type) &&
+      detectedFramework.slug !== "nodejs"
+    ) {
       throw new Error("Unsupported stack by the brimble builder");
     }
 
@@ -58,12 +66,15 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
 
     const frameworkFiles = detectedFramework.file_detectors;
 
-    if (frameworkFiles.some(file => projectFiles.includes(file)) && detectedFramework.type === FrameworkApplicationType.Static) {
-      const serveDirectory = await buildStaticApplication(validatedProjectDirectory, detectedFramework, options);
-
-      const hasStartCommand = options.startCommand || detectedFramework.settings.startCommand;
-
-      if(!hasStartCommand) process.exit(0);
+    if (
+      frameworkFiles.some(file => projectFiles.includes(file)) &&
+      detectedFramework.type === FrameworkApplicationType.Static
+    ) {
+      const serveDirectory = await buildStaticApplication(
+        validatedProjectDirectory,
+        detectedFramework,
+        options
+      );
 
       StaticFileServer.createServer({
         port: serverPort,
@@ -84,7 +95,11 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
   }
 };
 
-async function buildStaticApplication(validatedProjectDirectory: string, detectedFramework: IFramework, options: IOption): Promise<string> {
+async function buildStaticApplication(
+  validatedProjectDirectory: string,
+  detectedFramework: IFramework,
+  options: IOption
+): Promise<string> {
   let serveDirectory = validatedProjectDirectory;
 
   const hasBuildCommand = options.buildCommand || detectedFramework?.settings?.buildCommand;
@@ -98,15 +113,19 @@ async function buildStaticApplication(validatedProjectDirectory: string, detecte
       await buildScript({ _build: binaryName, buildArgs, dir: validatedProjectDirectory });
     }
 
-    const outputDir = options.outputDirectory || detectedFramework.settings.outputDirectory || "dist";
-      
+    const outputDir =
+      options.outputDirectory || detectedFramework.settings.outputDirectory || "dist";
+
     serveDirectory = path.join(validatedProjectDirectory, outputDir);
   }
 
   return serveDirectory;
 }
 
-async function detectProjectFramework(body: Record<any, any>, type: 'files' | 'packageJson'): Promise<IFramework> {
+async function detectProjectFramework(
+  body: Record<any, any>,
+  type: "files" | "packageJson"
+): Promise<IFramework> {
   let framework: IFramework;
   try {
     const response = await axios.post<DetectFrameworkResponse>(
