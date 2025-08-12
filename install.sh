@@ -6,7 +6,7 @@ BRIMBLE_VERSION="v3.8.2"
 error() {
     echo -e "\033[0;31merror:\033[0m" "$@" >&2
     exit 1
-
+}
 
 success() {
     echo -e "\033[0;32msuccess:\033[0m" "$@"
