@@ -25,6 +25,9 @@ BRIMBLE_LINUX_ARM64="https://github.com/brimblehq/brimble/releases/download/${BR
 BRIMBLE_ALPINE="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-alpine-x64"
 BRIMBLE_ALPINE_ARM64="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-alpine-arm64"
 
+BRIMBLE_MACOS="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-macos-x64"
+BRIMBLE_MACOS_ARM64="https://github.com/brimblehq/brimble/releases/download/${BRIMBLE_VERSION}/brimble-macos-arm64"
+
 INSTALL_DIR="$HOME/.brimble/bin"
 mkdir -p "${INSTALL_DIR}"
 
@@ -50,6 +53,11 @@ if [ "${1:-}" = "--all" ]; then
 
     download_binary "${BRIMBLE_ALPINE_ARM64}" "${INSTALL_DIR}/brimble-alpine-arm64" "Alpine ARM64"
     
+
+    download_binary "${BRIMBLE_MACOS}" "${INSTALL_DIR}/brimble-macos-x64" "macOS x64"
+    
+    download_binary "${BRIMBLE_MACOS_ARM64}" "${INSTALL_DIR}/brimble-macos-arm64" "macOS ARM64"
+    
     case "${OS}" in
         Linux)
             case "${ARCH}" in
@@ -65,7 +73,17 @@ if [ "${1:-}" = "--all" ]; then
             esac
             ;;
         Darwin)
-            ln -sf "${INSTALL_DIR}/brimble-macos-x64" "${INSTALL_DIR}/brimble"
+            case "${ARCH}" in
+                x86_64|amd64)
+                    ln -sf "${INSTALL_DIR}/brimble-macos-x64" "${INSTALL_DIR}/brimble"
+                    ;;
+                arm64)
+                    ln -sf "${INSTALL_DIR}/brimble-macos-arm64" "${INSTALL_DIR}/brimble"
+                    ;;
+                *)
+                    error "Unsupported architecture: ${ARCH} on macOS"
+                    ;;
+            esac
             ;;
         *)
             error "Unsupported operating system: ${OS}"
@@ -92,7 +110,7 @@ else
                     BRIMBLE_URL="${BRIMBLE_MACOS}"
                     ;;
                 arm64)
-                    BRIMBLE_URL="${BRIMBLE_MACOS}"
+                    BRIMBLE_URL="${BRIMBLE_MACOS_ARM64}"
                     ;;
                 *)
                     error "Unsupported architecture: ${ARCH} on macOS"
@@ -108,23 +126,34 @@ else
     download_binary "${BRIMBLE_URL}" "${BRIMBLE_BIN}" "${OS} ${ARCH}"
 fi
 
-mv "${INSTALL_DIR}/brimble" /usr/local/bin/brimble || error "Failed to move Brimble binary to /usr/local/bin/brimble"
+if sudo mv "${INSTALL_DIR}/brimble" /usr/local/bin/brimble; then
+    success "Brimble ${BRIMBLE_VERSION} was installed successfully to /usr/local/bin/brimble"
+    if [ "${1:-}" = "--all" ]; then
+        info "All platform binaries are available in ${INSTALL_DIR}"
+    fi
+    echo "Brimble is now available in your PATH. You can run 'brimble' from anywhere."
+else
+    info "Could not install to /usr/local/bin, keeping binary in ${INSTALL_DIR}"
+    
+    echo 'Adding Brimble to PATH in .bashrc and .zshrc...'
+    
+    if ! grep -q "export PATH=${INSTALL_DIR}" "$HOME/.bashrc" 2>/dev/null; then
+        {
+            echo "# Brimble PATH"
+            echo "export PATH=${INSTALL_DIR}:\$PATH"
+        } >> "$HOME/.bashrc"
+    fi
 
-echo 'Adding Brimble to PATH in .bashrc and .zshrc...'
-{
-    echo "# Brimble PATH"
-    echo "export PATH=${INSTALL_DIR}:\$PATH"
-} >> "$HOME/.bashrc"
+    if [ -f "$HOME/.zshrc" ] && ! grep -q "export PATH=${INSTALL_DIR}" "$HOME/.zshrc" 2>/dev/null; then
+        {
+            echo "# Brimble PATH"
+            echo "export PATH=${INSTALL_DIR}:\$PATH"
+        } >> "$HOME/.zshrc"
+    fi
 
-if [ -f "$HOME/.zshrc" ]; then
-    {
-    echo "# Brimble PATH"
-    echo "export PATH=${INSTALL_DIR}:\$PATH"
-    } >> "$HOME/.zshrc"
+    success "Brimble ${BRIMBLE_VERSION} was installed successfully"
+    if [ "${1:-}" = "--all" ]; then
+        info "All platform binaries are available in ${INSTALL_DIR}"
+    fi
+    echo "Please restart your terminal or run 'source ~/.bashrc' to update your PATH."
 fi
-
-success "Brimble ${BRIMBLE_VERSION} was installed successfully"
-if [ "${1:-}" = "--all" ]; then
-    info "All platform binaries are available in ${INSTALL_DIR}"
-fi
-echo "Please restart your terminal or run 'source ~/.bashrc' to update your PATH."
