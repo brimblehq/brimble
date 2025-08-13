@@ -96,7 +96,6 @@ export class FrameworkConfigurationAdapter {
         "next.config.cjs",
       ];
 
-      // Find the first config file that exists
       const configPath = possibleConfigNames
         .map(name => path.resolve(projectDirectory, name))
         .find(p => fs.existsSync(p));
@@ -105,20 +104,17 @@ export class FrameworkConfigurationAdapter {
 
       const nextConfigContent = fs.readFileSync(configPath, "utf8");
 
-      // Detect if output is set to "export"
       const isExportOutput = /\boutput\s*:\s*["']export["']/.test(nextConfigContent);
 
       if (isExportOutput) {
-        // Extract distDir if available
         const distDirMatch = /\bdistDir\s*:\s*["']([^"']+)["']/.exec(nextConfigContent);
-        const distDir = distDirMatch ? distDirMatch[1] : "out"; // Default is 'out'
+        const distDir = distDirMatch ? distDirMatch[1] : "out";
 
         buildConfig.startBinary = "";
         buildConfig.startArguments = [];
         buildConfig.outputDirectory = distDir;
       }
     } catch {
-      // Next config file doesn't exist or can't be read, use defaults
     }
   }
 }
