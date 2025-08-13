@@ -76,6 +76,8 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
         options
       );
 
+      if (options.build && !options.install && !options.start) process.exit(0);
+
       StaticFileServer.createServer({
         port: serverPort,
         host: serverHost,
@@ -177,7 +179,7 @@ async function handleProjectProcess(
     port: serverPort,
     host: serverHost,
     directory: projectDirectory,
-    outputDirectory: resolvedCommands.outputDirectory,
+    outputDirectory: buildConfiguration.outputDirectory || resolvedCommands.outputDirectory,
     shouldOpenBrowser: options.open ?? false,
     shouldWatch: options.watch ?? false,
   };

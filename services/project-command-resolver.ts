@@ -10,9 +10,7 @@ export class ProjectCommandResolver {
     projectFiles: string[],
     options: IOption
   ): Promise<ResolvedProjectCommands> {
-    const runtime = RuntimeDetector.detectPackageManager(projectFiles, {
-      useBun: options.useBun,
-    });
+    const runtime = RuntimeDetector.detectPackageManager(projectFiles, { useBun: options.useBun });
 
     let defaultCommands = RuntimeDetector.adaptCommandsForRuntime(
       {

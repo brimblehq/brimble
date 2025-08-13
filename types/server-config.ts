@@ -23,6 +23,7 @@ export interface ProjectBuildConfiguration {
   buildArguments: string[];
   startBinary: string;
   startArguments: string[];
+  outputDirectory?: string;
 }
 
 export interface StaticServerConfig {

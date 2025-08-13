@@ -30,6 +30,10 @@ export class FrameworkConfigurationAdapter {
         this.adaptSvelteConfiguration(adaptedConfig, projectDirectory);
         break;
 
+      case "next":
+        this.adaptNextConfiguration(adaptedConfig, projectDirectory);
+        break;
+
       default:
         // No specific adaptations needed
         break;
@@ -77,6 +81,44 @@ export class FrameworkConfigurationAdapter {
       }
     } catch (error) {
       // Svelte config file doesn't exist or can't be read, use defaults
+    }
+  }
+
+  private static adaptNextConfiguration(
+    buildConfig: ProjectBuildConfiguration,
+    projectDirectory: string
+  ): void {
+    try {
+      const possibleConfigNames = [
+        "next.config.ts",
+        "next.config.js",
+        "next.config.mjs",
+        "next.config.cjs",
+      ];
+
+      // Find the first config file that exists
+      const configPath = possibleConfigNames
+        .map(name => path.resolve(projectDirectory, name))
+        .find(p => fs.existsSync(p));
+
+      if (!configPath) throw new Error("No Next.js config file found");
+
+      const nextConfigContent = fs.readFileSync(configPath, "utf8");
+
+      // Detect if output is set to "export"
+      const isExportOutput = /\boutput\s*:\s*["']export["']/.test(nextConfigContent);
+
+      if (isExportOutput) {
+        // Extract distDir if available
+        const distDirMatch = /\bdistDir\s*:\s*["']([^"']+)["']/.exec(nextConfigContent);
+        const distDir = distDirMatch ? distDirMatch[1] : "out"; // Default is 'out'
+
+        buildConfig.startBinary = "";
+        buildConfig.startArguments = [];
+        buildConfig.outputDirectory = distDir;
+      }
+    } catch {
+      // Next config file doesn't exist or can't be read, use defaults
     }
   }
 }
