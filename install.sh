@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 BRIMBLE_VERSION="v3.8.4"
