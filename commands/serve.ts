@@ -76,7 +76,7 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
         options
       );
 
-      if (options.build && !options.install && !options.start) process.exit(0);
+      if ((options.build || options.install) && !options.start) process.exit(0);
 
       StaticFileServer.createServer({
         port: serverPort,
