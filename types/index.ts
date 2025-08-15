@@ -14,6 +14,7 @@ export type IOption = {
   install?: boolean;
   build?: boolean;
   modulesFolder?: string;
+  reusePort?: boolean;
 };
 
 export type MCPMessage = {

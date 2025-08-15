@@ -20,9 +20,9 @@ export const serveProject = async (targetDirectory: string = ".", options: IOpti
     const { folder: validatedProjectDirectory, files: projectFiles } =
       dirValidator(targetDirectory);
 
-    const serverPort = await getPort({
-      port: Number(options.port || process.env.PORT) || undefined,
-    });
+    const serverPort = options.reusePort
+      ? Number(options.port || process.env.PORT)
+      : await getPort({ port: Number(options.port || process.env.PORT) || undefined });
 
     const frameworksShouldBuild = [
       FrameworkApplicationType.Ssr,

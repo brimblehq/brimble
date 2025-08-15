@@ -19,7 +19,7 @@ export class StaticContentServer {
         );
       }
 
-      return serveProject(outputFolder, serverConfig);
+      return serveProject(outputFolder, { ...serverConfig, reusePort: true });
     } catch (error) {
       const errorMessage = (error as Error).message;
       console.log(chalk.red(`Start failed with error: ${errorMessage}`));
