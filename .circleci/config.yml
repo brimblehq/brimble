@@ -53,8 +53,20 @@ jobs:
               --notes "Build artifacts: macos, linux & windows" \
               builds/*
       - run:
+          name: Install AWS CLI
+          command: |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      - run:
+          name: Upload install.sh to S3
+          command: |
+            aws s3 cp install.sh s3://${AWS_S3_BUCKET}/install.sh \
+              --acl public-read \
+              --content-type "text/plain"
+      - run:
           name: Final clean up
-          command: rm -rf builds
+          command: rm -rf builds awscliv2.zip aws
 
 workflows:
   version: 2
