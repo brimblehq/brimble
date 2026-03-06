@@ -65,6 +65,12 @@ jobs:
               --acl public-read \
               --content-type "text/plain"
       - run:
+          name: Upload binaries to S3
+          command: |
+            aws s3 cp builds/ s3://${AWS_S3_BUCKET}/builds/ \
+              --acl public-read \
+              --recursive
+      - run:
           name: Final clean up
           command: rm -rf builds awscliv2.zip aws
 
