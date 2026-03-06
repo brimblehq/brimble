@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-BRIMBLE_VERSION="v3.8.6"
+BRIMBLE_VERSION="v3.8.7"
 
 error() {
     echo -e "\033[0;31merror:\033[0m" "$@" >&2
