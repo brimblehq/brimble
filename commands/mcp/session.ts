@@ -22,12 +22,18 @@ interface SessionStats {
   alive: boolean;
 }
 
+interface PendingResponse {
+  resolve: (response: MCPMessage) => void;
+  reject: (error: Error) => void;
+  timeoutId: NodeJS.Timeout;
+}
+
 export class MCPSession {
   public id: string;
   public initialized: boolean;
   public process: ChildProcess | null;
   public messageQueue: any[];
-  public responseCallbacks: Map<string | number, (response: MCPMessage) => void>;
+  public responseCallbacks: Map<string | number, PendingResponse>;
   public currentMessageId: number;
   public initResponse: MCPMessage | null;
   public options: any;
@@ -38,6 +44,10 @@ export class MCPSession {
   private stderrBuffer: string = "";
   public fullyInitialized: boolean;
   private initializationPromise: Promise<void> | null = null;
+  private failed: boolean = false;
+  private fatalError: Error | null = null;
+  private cleanedUp: boolean = false;
+  private onSessionEnd?: (session: MCPSession) => void;
 
   constructor(options: any = {}, globalConfig: GlobalConfig) {
     this.id = uuidv4();
@@ -55,6 +65,10 @@ export class MCPSession {
     this.stderrBuffer = "";
     this.fullyInitialized = false;
     this.initializationPromise = null;
+    this.failed = false;
+    this.fatalError = null;
+    this.cleanedUp = false;
+    this.onSessionEnd = typeof options?.onSessionEnd === "function" ? options.onSessionEnd : undefined;
   }
 
   isValidJSON(str: string): boolean {
@@ -82,7 +96,7 @@ export class MCPSession {
       });
 
       sessionSpinner.succeed(
-        `Process started ${chalk.green("✓")} PID: ${chalk.yellow(this.process.pid)}`
+        `Process started ${chalk.green("")} PID: ${chalk.yellow(this.process.pid)}`
       );
 
       this.setupProcessHandlers();
@@ -96,6 +110,23 @@ export class MCPSession {
       sessionSpinner.fail(`Failed to start process: ${error.message}`);
       throw error;
     }
+  }
+
+  private terminateSession(reason: string): void {
+    if (this.cleanedUp) return;
+
+    this.failed = true;
+    this.fatalError = new Error(reason);
+    this.rejectPendingResponses(this.fatalError);
+    this.cleanup();
+  }
+
+  private rejectPendingResponses(error: Error): void {
+    this.responseCallbacks.forEach(({ reject, timeoutId }) => {
+      clearTimeout(timeoutId);
+      reject(error);
+    });
+    this.responseCallbacks.clear();
   }
 
   setupProcessHandlers(): void {
@@ -114,8 +145,8 @@ export class MCPSession {
             const response: MCPMessage = JSON.parse(line);
 
             if (response.method?.startsWith("notifications/")) {
-              logger.info(`📢 Server notification: ${response.method}`);
-              return lines[lines.length - 1] || "";
+              logger.info(` Server notification: ${response.method}`);
+              continue;
             }
 
             this.handleMCPResponse(response);
@@ -123,14 +154,14 @@ export class MCPSession {
 
             if (this.globalConfig.verbose) {
               logger.debug(
-                `📥 Received from ${source}: ${chalk.gray(JSON.stringify(response, null, 2))}`
+                ` Received from ${source}: ${chalk.gray(JSON.stringify(response, null, 2))}`
               );
             }
           } catch (error: any) {
             logger.error(`Failed to parse MCP response from ${source}: ${error.message}`);
           }
         } else {
-          if (line.includes("🚨") || line.toLowerCase().includes("error")) {
+          if (line.includes("") || line.toLowerCase().includes("error")) {
             logger.warn(`Error: ${line}`);
           } else if (this.globalConfig.verbose) {
             logger.info(`Server (${source}): ${line}`);
@@ -170,24 +201,26 @@ export class MCPSession {
             `${signal ? `signal ${signal} ` : ""}(uptime: ${chalk.cyan(uptime)}s)`
         );
       }
-      this.cleanup();
+      this.terminateSession(
+        `MCP process exited${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}`
+      );
     });
 
     this.process.on("error", (error: Error) => {
       logger.error(`Process spawn failed: ${error.message}`);
       logger.error(`Process error details: ${error.stack}`);
-      throw new Error(`Process spawn failed: ${error.message}`);
+      this.terminateSession(`MCP process failure: ${error.message}`);
     });
   }
 
   handleMCPResponse(response: MCPMessage): void {
     if (this.globalConfig.verbose) {
       logger.debug(
-        `🎯 Handling response: ID=${response.id} (type=${typeof response.id}), Method=${response.method}`
+        ` Handling response: ID=${response.id} (type=${typeof response.id}), Method=${response.method}`
       );
     }
 
-    logger.info(`📥 Received MCP Response: ${JSON.stringify(response, null, 2)}`);
+    logger.info(` Received MCP Response: ${JSON.stringify(response, null, 2)}`);
 
     if (
       response.id !== undefined &&
@@ -197,39 +230,40 @@ export class MCPSession {
       const callback = this.responseCallbacks.get(response.id);
       if (callback) {
         this.responseCallbacks.delete(response.id);
-        callback(response);
+        clearTimeout(callback.timeoutId);
+        callback.resolve(response);
         if (this.globalConfig.verbose) {
-          logger.debug(`✅ Successfully delivered response for ID: ${response.id}`);
+          logger.debug(` Successfully delivered response for ID: ${response.id}`);
         }
       }
     } else {
       logger.warn(
-        `⚠️ No callback found for response ID: ${response.id} (type=${typeof response.id})`
+        `️ No callback found for response ID: ${response.id} (type=${typeof response.id})`
       );
-      logger.debug(`📋 Active callbacks: ${Array.from(this.responseCallbacks.keys()).join(", ")}`);
+      logger.debug(` Active callbacks: ${Array.from(this.responseCallbacks.keys()).join(", ")}`);
     }
   }
 
   sendMessage(message: MCPMessage): Promise<MCPMessage> {
     return new Promise((resolve, reject) => {
       if (!this.process || this.process.killed) {
-        logger.error("❌ MCP process not available");
+        logger.error(" MCP process not available");
         reject(new Error("MCP process not available"));
         return;
       }
 
-      logger.info(`📤 Sending MCP Message: ${JSON.stringify(message, null, 2)}`);
-
-      if (message.id) {
-        this.responseCallbacks.set(message.id, resolve);
-        logger.debug(`📝 Registered callback for message ID: ${message.id}`);
+      if (this.failed) {
+        reject(this.fatalError || new Error("MCP session is unavailable"));
+        return;
       }
+
+      logger.info(` Sending MCP Message: ${JSON.stringify(message, null, 2)}`);
 
       const messageStr = JSON.stringify(message);
       this.process.stdin?.write(messageStr + "\n");
 
       if (this.globalConfig.verbose) {
-        logger.debug(`📤 Sent: ${chalk.gray(messageStr)}`);
+        logger.debug(` Sent: ${chalk.gray(messageStr)}`);
       }
 
       const getTimeoutForMethod = (method?: string): number => {
@@ -248,38 +282,34 @@ export class MCPSession {
       };
 
       const timeoutMs = getTimeoutForMethod(message.method);
-      logger.debug(`⏱️ Set timeout of ${timeoutMs}ms for method: ${message.method}`);
+      logger.debug(`️ Set timeout of ${timeoutMs}ms for method: ${message.method}`);
 
-      const timeoutId = setTimeout(() => {
-        if (message.id && this.responseCallbacks.has(message.id)) {
-          this.responseCallbacks.delete(message.id);
-          logger.error(
-            `⏰ Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`
-          );
-          reject(
-            new Error(`Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`)
-          );
-        }
-      }, timeoutMs);
+      if (message.id !== undefined && message.id !== null) {
+        const responseId = message.id;
+        const timeoutId = setTimeout(() => {
+          const pending = this.responseCallbacks.get(responseId);
+          if (pending) {
+            this.responseCallbacks.delete(responseId);
+            logger.error(
+              ` Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`
+            );
+            pending.reject(
+              new Error(`Request timeout after ${timeoutMs / 1000}s for method: ${message.method}`)
+            );
+          }
+        }, timeoutMs);
 
-      if (message.id) {
-        const originalCallback = this.responseCallbacks.get(message.id);
-        if (originalCallback) {
-          this.responseCallbacks.set(message.id, (response: MCPMessage) => {
-            clearTimeout(timeoutId);
-            logger.debug(`✅ Received response for message ID: ${message.id}`);
-            originalCallback(response);
-          });
-        }
+        this.responseCallbacks.set(responseId, { resolve, reject, timeoutId });
+        logger.debug(` Registered callback for message ID: ${responseId}`);
       }
     });
   }
 
   async initialize(params: any): Promise<MCPMessage> {
-    logger.info(`🔄 Initializing MCP session with params: ${JSON.stringify(params, null, 2)}`);
+    logger.info(` Initializing MCP session with params: ${JSON.stringify(params, null, 2)}`);
 
     if (this.initialized && this.initResponse) {
-      logger.info("✅ Using cached initialization response");
+      logger.info(" Using cached initialization response");
       return this.initResponse;
     }
 
@@ -289,8 +319,13 @@ export class MCPSession {
     }
 
     this.initializationPromise = this.performInitialization(params);
-    await this.initializationPromise;
-    return this.initResponse!;
+    try {
+      await this.initializationPromise;
+      return this.initResponse!;
+    } catch (error) {
+      this.initializationPromise = null;
+      throw error;
+    }
   }
 
   private async performInitialization(params: any): Promise<void> {
@@ -312,7 +347,7 @@ export class MCPSession {
 
       await this.sendNotification("notifications/initialized");
 
-      initSpinner.succeed(`MCP session initialized ${chalk.green("✓")}`);
+      initSpinner.succeed(`MCP session initialized ${chalk.green("")}`);
 
       if (this.globalConfig.verbose && response.result) {
         const serverInfo = response.result.serverInfo;
@@ -324,14 +359,18 @@ export class MCPSession {
       }
     } catch (error: any) {
       initSpinner.fail(`Initialization failed: ${error.message}`);
-      logger.error(`❌ Initialization error: ${error.message}`);
+      logger.error(` Initialization error: ${error.message}`);
       throw new Error(`Initialization failed: ${error.message}`);
+    } finally {
+      if (!this.initialized) {
+        this.initializationPromise = null;
+      }
     }
   }
 
   sendNotification(method: string, params: any = {}): void {
     if (!this.process || this.process.killed) {
-      logger.error("❌ MCP process not available");
+      logger.error(" MCP process not available");
       return;
     }
 
@@ -344,14 +383,14 @@ export class MCPSession {
     const messageStr = JSON.stringify(notification);
     this.process.stdin?.write(messageStr + "\n");
 
-    logger.info(`📤 Sent notification: ${chalk.gray(messageStr)}`);
+    logger.info(` Sent notification: ${chalk.gray(messageStr)}`);
   }
 
   async callMethod(method: string, params: any = {}): Promise<MCPMessage> {
-    logger.info(`🔄 Calling method: ${method} with params: ${JSON.stringify(params, null, 2)}`);
+    logger.info(` Calling method: ${method} with params: ${JSON.stringify(params, null, 2)}`);
 
     if (!this.initialized && method !== "initialize") {
-      logger.error("❌ Server not initialized");
+      logger.error(" Server not initialized");
       throw new Error("Server not initialized");
     }
 
@@ -366,13 +405,26 @@ export class MCPSession {
   }
 
   cleanup(): void {
+    if (this.cleanedUp) return;
+    this.cleanedUp = true;
+
     if (this.process && !this.process.killed) {
-      this.process.kill();
+      try {
+        this.process.kill();
+      } catch (error: any) {
+        logger.warn(`Failed to kill MCP process cleanly: ${error.message}`);
+      }
     }
-    this.responseCallbacks.clear();
+
+    this.rejectPendingResponses(this.fatalError || new Error("MCP session was cleaned up"));
     this.initResponse = null;
     this.initialized = false;
     this.initializationPromise = null;
+    this.process = null;
+
+    if (this.onSessionEnd) {
+      this.onSessionEnd(this);
+    }
   }
 
   getStats(): SessionStats {

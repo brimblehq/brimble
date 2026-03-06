@@ -20,12 +20,12 @@ export function displayBanner(quiet: boolean): void {
 
 export function displayServerInfo(port: number, command: string, args: string[]): void {
   const info = boxen(
-    `${chalk.green("🚀 Server Started")}\n\n` +
+    `${chalk.green(" Server Started")}\n\n` +
       `${chalk.blue("Port:")} ${chalk.yellow(port)}\n` +
       `${chalk.blue("Command:")} ${chalk.cyan(command)} ${chalk.gray(args.join(" "))}\n\n` +
       `${chalk.blue("Endpoints:")}\n` +
-      `  📡 Host: ${chalk.underline(`http://localhost:${port}`)}\n` +
-      `  🏥 Health: ${chalk.underline(`http://localhost:${port}/health`)}\n` +
+      `   Host: ${chalk.underline(`http://localhost:${port}`)}\n` +
+      `   Health: ${chalk.underline(`http://localhost:${port}/health`)}\n` +
       `${chalk.gray("Press Ctrl+C to stop")}`,
     {
       padding: 1,

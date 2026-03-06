@@ -120,7 +120,7 @@ export const sendToServer = async ({
       }
 
       socket.on(`${projectId}-deployed`, ({ url, message }: { url: string; message: string }) => {
-        deploySpinner.succeed(chalk.green(`Project deployed to Brimble 🎉`));
+        deploySpinner.succeed(chalk.green(`Project deployed to Brimble `));
         if (message) {
           log.warn(chalk.yellow.bold(`${message}`));
         }
@@ -147,7 +147,7 @@ export const sendToServer = async ({
       });
 
       socket.on(`${projectId}-error`, ({ message }: { message: string }) => {
-        deploySpinner.fail(chalk.red(`Project failed to deploy 🚨`));
+        deploySpinner.fail(chalk.red(`Project failed to deploy `));
         log.error(chalk.red(`${message} Using ${chalk.bold(`brimble logs ${name}`)}`));
         socket.disconnect();
         process.exit(1);
@@ -155,11 +155,11 @@ export const sendToServer = async ({
     })
     .catch(err => {
       if (err.response) {
-        deploySpinner.fail(chalk.red(`Error deploying to Brimble 😭\n${err.response.data.msg}`));
+        deploySpinner.fail(chalk.red(`Error deploying to Brimble \n${err.response.data.msg}`));
       } else if (err.request) {
         deploySpinner.fail(chalk.red(`Make sure you are connected to the internet`));
       } else {
-        deploySpinner.fail(chalk.red(`Error deploying to Brimble 😭 \n ${err.message}`));
+        deploySpinner.fail(chalk.red(`Error deploying to Brimble  \n ${err.message}`));
       }
       log.info(chalk.greenBright(FEEDBACK_MESSAGE));
       process.exit(1);

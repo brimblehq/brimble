@@ -28,7 +28,7 @@ const domains = async (value: string, options: Option, command: Command) => {
       .get(`/domains?id=${id}`)
       .then(({ data }) => {
         const { domains } = data;
-        spinner.succeed(chalk.green(`${domains.length} domains found 🤓`));
+        spinner.succeed(chalk.green(`${domains.length} domains found `));
         domains.forEach(({ name }: { name: string }) => {
           log.info(chalk.green(`${name}`));
         });
@@ -38,12 +38,12 @@ const domains = async (value: string, options: Option, command: Command) => {
       .catch(err => {
         if (err.response) {
           spinner.fail(
-            chalk.red(`Error fetching domains from Brimble 😭\n${err.response.data.msg}`)
+            chalk.red(`Error fetching domains from Brimble \n${err.response.data.msg}`)
           );
         } else if (err.request) {
           spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(chalk.red(`Error fetching domains from Brimble 😭\n${err.message}`));
+          spinner.fail(chalk.red(`Error fetching domains from Brimble \n${err.message}`));
         }
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(1);
@@ -66,17 +66,17 @@ const domains = async (value: string, options: Option, command: Command) => {
         if (info) {
           log.warn(chalk.yellow(`${info}`));
         }
-        spinner.succeed(chalk.green(`${domain.name} added 🤓`));
+        spinner.succeed(chalk.green(`${domain.name} added `));
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       })
       .catch(err => {
         if (err.response) {
-          spinner.fail(chalk.red(`Error adding domain to Brimble 😭\n${err.response.data.msg}`));
+          spinner.fail(chalk.red(`Error adding domain to Brimble \n${err.response.data.msg}`));
         } else if (err.request) {
           spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(chalk.red(`Error adding domain to Brimble 😭\n${err.message}`));
+          spinner.fail(chalk.red(`Error adding domain to Brimble \n${err.message}`));
         }
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(1);
@@ -92,19 +92,19 @@ const domains = async (value: string, options: Option, command: Command) => {
     setupAxios(user.token)
       .delete(`/domains?domain=${value}&projectId=${id}`)
       .then(() => {
-        spinner.succeed(chalk.green(`${value} removed 🤓`));
+        spinner.succeed(chalk.green(`${value} removed `));
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       })
       .catch(err => {
         if (err.response) {
           spinner.fail(
-            chalk.red(`Error removing domain from Brimble 😭\n${err.response.data.msg}`)
+            chalk.red(`Error removing domain from Brimble \n${err.response.data.msg}`)
           );
         } else if (err.request) {
           spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(chalk.red(`Error removing domain from Brimble 😭\n${err.message}`));
+          spinner.fail(chalk.red(`Error removing domain from Brimble \n${err.message}`));
         }
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(1);

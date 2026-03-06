@@ -60,7 +60,7 @@ const env = async (value: string, options: Option, command: Command) => {
         setupAxios(user.token)
           .post(`/env`, { projectId: id, environments: results })
           .then(() => {
-            spinner.succeed(chalk.green(`${results.length} env variables added 🤓`));
+            spinner.succeed(chalk.green(`${results.length} env variables added `));
 
             const table = new Table({
               head: ["Name", "Value"],
@@ -77,12 +77,12 @@ const env = async (value: string, options: Option, command: Command) => {
           .catch(err => {
             if (err.response) {
               spinner.fail(
-                chalk.red(`Error adding env variables to Brimble 😭\n${err.response.data.msg}`)
+                chalk.red(`Error adding env variables to Brimble \n${err.response.data.msg}`)
               );
             } else if (err.request) {
               spinner.fail(chalk.red(`Make sure you are connected to the internet`));
             } else {
-              spinner.fail(chalk.red(`Error adding env variables to Brimble 😭\n${err.message}`));
+              spinner.fail(chalk.red(`Error adding env variables to Brimble \n${err.message}`));
             }
 
             log.info(chalk.greenBright(FEEDBACK_MESSAGE));
@@ -98,7 +98,7 @@ const env = async (value: string, options: Option, command: Command) => {
     setupAxios(user.token)
       .get(`/env?projectId=${id}`)
       .then(({ data }) => {
-        spinner.succeed(chalk.green("Env variables retrieved 🤓"));
+        spinner.succeed(chalk.green("Env variables retrieved "));
 
         const table = new Table({
           head: ["Name", "Value"],
@@ -114,11 +114,11 @@ const env = async (value: string, options: Option, command: Command) => {
       })
       .catch(err => {
         if (err.response) {
-          spinner.fail(chalk.red(`Error getting env variables 😭\n${err.response.data.msg}`));
+          spinner.fail(chalk.red(`Error getting env variables \n${err.response.data.msg}`));
         } else if (err.request) {
           spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(chalk.red(`Error getting env variables 😭\n${err.message}`));
+          spinner.fail(chalk.red(`Error getting env variables \n${err.message}`));
         }
 
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
@@ -140,18 +140,18 @@ const env = async (value: string, options: Option, command: Command) => {
     setupAxios(user.token)
       .delete(`/env?projectId=${id}&env=${value.toUpperCase()}`)
       .then(() => {
-        spinner.succeed(chalk.green(`${value.toUpperCase()} removed 🤓`));
+        spinner.succeed(chalk.green(`${value.toUpperCase()} removed `));
 
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));
         process.exit(0);
       })
       .catch(err => {
         if (err.response) {
-          spinner.fail(chalk.red(`Error deleting env variables 😭\n${err.response.data.msg}`));
+          spinner.fail(chalk.red(`Error deleting env variables \n${err.response.data.msg}`));
         } else if (err.request) {
           spinner.fail(chalk.red(`Make sure you are connected to the internet`));
         } else {
-          spinner.fail(chalk.red(`Error deleting env variables 😭\n${err.message}`));
+          spinner.fail(chalk.red(`Error deleting env variables \n${err.message}`));
         }
 
         log.info(chalk.greenBright(FEEDBACK_MESSAGE));

@@ -80,7 +80,7 @@ program
   .option("-s --silent", "silent mode")
   .action(deploy);
 
-const mcp = program.command("mcp").description("🚀 MCP (Model Context Protocol) proxy commands");
+const mcp = program.command("mcp").description(" MCP (Model Context Protocol) proxy commands");
 
 mcp
   .command("start")
